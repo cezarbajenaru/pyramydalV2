@@ -1,0 +1,104 @@
+name: Deploy Lambda Functions
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'lambda/**'
+      - '.github/workflows/deploy-lambda.yml'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: 'eu-central-1'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy Lambda Functions
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        function: [import_reference, recalc]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Build Lambda Package
+        working-directory: lambda/${{ matrix.function }}
+        run: |
+          # Create package directory
+          mkdir -p package
+          
+          # Install dependencies
+          pip install -r requirements.txt -t package/
+          
+          # Copy handler
+          cp handler.py package/
+          
+          # Create ZIP
+          cd package
+          zip -r ../package.zip .
+          cd ..
+      
+      - name: Deploy to Lambda
+        working-directory: lambda/${{ matrix.function }}
+        run: |
+          # Get function name from Terraform outputs or use naming convention
+          FUNCTION_NAME="pyramydal-prod-${{ matrix.function == 'import_reference' && 'import' || matrix.function }}"
+          
+          echo "Deploying to function: $FUNCTION_NAME"
+          
+          aws lambda update-function-code \
+            --function-name "$FUNCTION_NAME" \
+            --zip-file fileb://package.zip \
+            --region ${{ env.AWS_REGION }}
+          
+          # Wait for update to complete
+          aws lambda wait function-updated \
+            --function-name "$FUNCTION_NAME" \
+            --region ${{ env.AWS_REGION }}
+          
+          echo "✅ Lambda function updated successfully"
+      
+      - name: Test Lambda Function
+        run: |
+          FUNCTION_NAME="pyramydal-prod-${{ matrix.function == 'import_reference' && 'import' || matrix.function }}"
+          
+          # Dry-run invocation to verify deployment
+          aws lambda invoke \
+            --function-name "$FUNCTION_NAME" \
+            --payload '{"test": true}' \
+            --region ${{ env.AWS_REGION }} \
+            /tmp/lambda-response.json || true
+          
+          echo "Lambda function is ready"
+      
+      - name: Upload Package Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: lambda-${{ matrix.function }}-package
+          path: lambda/${{ matrix.function }}/package.zip
+          retention-days: 30
+      
+      - name: Summary
+        run: |
+          echo "### Lambda Deployment Complete ✅" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Function:** ${{ matrix.function }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+

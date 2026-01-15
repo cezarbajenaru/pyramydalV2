@@ -1,0 +1,55 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+*.pem
+*.key
+.env
+.env.local
+secrets/
+
+# Excel files (real data)
+xls/*.xlsx
+xls/*.xls
+!xls/README.md
+
+# Appsmith volumes (managed by Docker)
+appsmith/stacks/
+
+# Lambda deployment packages
+lambda/**/package.zip
+lambda/**/node_modules/
+
+# Logs
+*.log
+logs/
+

@@ -1,0 +1,35 @@
+# Production Environment Variables
+# Copy this file to terraform.tfvars and fill in your values
+# NEVER commit terraform.tfvars to git!
+
+aws_region  = "eu-central-1"
+environment = "prod"
+
+# Network
+vpc_cidr = "10.0.0.0/16"
+
+# Database
+db_username         = "admin"
+db_password         = "CHANGE_ME_STRONG_PASSWORD"  # Use AWS Secrets Manager in production
+db_instance_class   = "db.t4g.small"               # 2 vCPU, 2GB RAM
+enable_multi_az     = true                         # Set true for production
+backup_retention_days = 14
+
+# EC2 Appsmith
+ec2_instance_type = "t3.medium"                    # 2 vCPU, 4GB RAM
+ec2_key_name      = "my-ec2-keypair"               # Your SSH key name
+
+# Security - IMPORTANT: Restrict to your office/VPN IPs
+allowed_ips = [
+  "203.0.113.0/24",  # Example: Your office IP range
+  "198.51.100.0/24"  # Example: Your VPN IP range
+]
+
+# Appsmith Encryption (CRITICAL: Generate once and never change!)
+# Generate with: openssl rand -base64 32
+appsmith_encryption_password = "GENERATE_RANDOM_32_CHAR_STRING"
+appsmith_encryption_salt     = "GENERATE_RANDOM_32_CHAR_STRING"
+
+# Optional: Domain name for HTTPS
+domain_name = "pyramydal.yourcompany.com"
+

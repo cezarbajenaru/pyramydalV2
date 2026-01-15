@@ -1,0 +1,83 @@
+version: "3.8"
+
+# Appsmith Docker Compose Configuration
+# CRITICAL: This file uses named volumes for persistence
+# NEVER delete volumes or change encryption keys after first setup!
+
+services:
+  appsmith:
+    image: appsmith/appsmith-ce:v1.9.56  # PINNED VERSION - update via CI/CD only
+    container_name: appsmith
+    restart: unless-stopped
+    
+    ports:
+      - "80:80"
+      - "443:443"
+    
+    volumes:
+      # PERSISTENT VOLUME - Contains all Appsmith data
+      # This includes: user accounts, applications, datasources, etc.
+      - appsmith_data:/appsmith-stacks
+    
+    environment:
+      # ========================================
+      # ENCRYPTION SETTINGS (NEVER CHANGE!)
+      # ========================================
+      APPSMITH_ENCRYPTION_PASSWORD: ${APPSMITH_ENCRYPTION_PASSWORD}
+      APPSMITH_ENCRYPTION_SALT: ${APPSMITH_ENCRYPTION_SALT}
+      
+      # ========================================
+      # DATABASE CONNECTION
+      # ========================================
+      PYRAMYDAL_DB_HOST: ${PYRAMYDAL_DB_HOST}
+      PYRAMYDAL_DB_NAME: ${PYRAMYDAL_DB_NAME}
+      PYRAMYDAL_DB_USER: ${PYRAMYDAL_DB_USER}
+      PYRAMYDAL_DB_PASSWORD: ${PYRAMYDAL_DB_PASSWORD}
+      PYRAMYDAL_DB_PORT: "5432"
+      
+      # ========================================
+      # S3 BUCKET
+      # ========================================
+      PYRAMYDAL_S3_BUCKET: ${PYRAMYDAL_S3_BUCKET}
+      
+      # ========================================
+      # APPSMITH CONFIGURATION
+      # ========================================
+      APPSMITH_DISABLE_TELEMETRY: "true"
+      APPSMITH_CLOUD_SERVICES_BASE_URL: ""
+      
+      # Signup configuration
+      APPSMITH_SIGNUP_DISABLED: "false"
+      
+      # Email configuration (optional)
+      # APPSMITH_MAIL_ENABLED: "true"
+      # APPSMITH_MAIL_FROM: "noreply@yourcompany.com"
+      # APPSMITH_MAIL_HOST: "smtp.gmail.com"
+      # APPSMITH_MAIL_PORT: "587"
+      # APPSMITH_MAIL_USERNAME: ""
+      # APPSMITH_MAIL_PASSWORD: ""
+      
+      # Google OAuth (optional)
+      # APPSMITH_OAUTH2_GOOGLE_CLIENT_ID: ""
+      # APPSMITH_OAUTH2_GOOGLE_CLIENT_SECRET: ""
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  # NAMED VOLUME - Persists across container recreations
+  # Location on host: /var/lib/docker/volumes/appsmith_appsmith_data/_data
+  # BACKUP THIS VOLUME REGULARLY!
+  appsmith_data:
+    driver: local
+    name: appsmith_data
+
+# Network (optional, using default bridge)
+networks:
+  default:
+    name: appsmith_network
+
