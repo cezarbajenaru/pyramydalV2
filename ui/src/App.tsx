@@ -13,8 +13,10 @@ import {
 import { runtimeConfig } from "./config";
 
 const PAGE_SIZE = 50;
-const SCROLL_THRESHOLD_PX = 420;
-const SCROLL_THRESHOLD_VIEWPORT_MULTIPLIER = 1.5;
+const SCROLL_THRESHOLD_PX = 900;
+const SCROLL_THRESHOLD_VIEWPORT_MULTIPLIER = 2.75;
+const COLUMN_LABELS_STORAGE_KEY = "pyramydal.mainRows.columnLabels.v1";
+const MAX_COLUMN_LABEL_LENGTH = 64;
 const MACHINE_FIELDS = [
   "strung_colchester",
   "strung_cnc",
@@ -39,6 +41,164 @@ const MACHINE_FIELDS = [
 ] as const;
 
 type MachineField = (typeof MACHINE_FIELDS)[number];
+type ColumnKey = keyof MainRow | "id" | "actions";
+type SearchField = "all" | "id" | keyof MainRow;
+type SearchMode = "contains" | "has_value" | "is_empty";
+type FilterField = Exclude<SearchField, "all">;
+type FilterRule = {
+  id: string;
+  field: FilterField;
+  mode: SearchMode;
+  query: string;
+};
+
+const COLUMN_ORDER: ColumnKey[] = [
+  "id",
+  "nr_fisa",
+  "reper",
+  "client",
+  "buc",
+  "data_intrare",
+  "data_livrare",
+  "comanda",
+  "tratament",
+  "observatii",
+  "strung_colchester",
+  "strung_cnc",
+  "freze_mici",
+  "freze_mari",
+  "gaurire",
+  "rectificare",
+  "bwk",
+  "sip",
+  "norte",
+  "tos",
+  "bridgeport",
+  "eco",
+  "schaublin",
+  "hurco",
+  "matec",
+  "parpas",
+  "ajustare",
+  "filetare",
+  "marcare",
+  "curatare_filete",
+  "timp_per_buc",
+  "ore_totale",
+  "valoare_per_buc",
+  "valoare_totala",
+  "utilaj_folosit",
+  "soft_folosit",
+  "programator",
+  "locatie_dosar",
+  "status",
+  "control_status",
+  "magazie_status",
+  "created_at",
+  "created_by",
+  "updated_at",
+  "updated_by",
+  "recalc_at",
+  "actions",
+];
+
+const DEFAULT_COLUMN_LABELS: Record<ColumnKey, string> = {
+  id: "ID",
+  nr_fisa: "Nr Fisa",
+  reper: "Reper",
+  client: "Client",
+  buc: "Buc",
+  data_intrare: "Data Intrare",
+  data_livrare: "Data Livrare",
+  comanda: "Comanda",
+  tratament: "Tratament",
+  observatii: "Observatii",
+  strung_colchester: "Strung Colchester",
+  strung_cnc: "Strung CNC",
+  freze_mici: "Freze Mici",
+  freze_mari: "Freze Mari",
+  gaurire: "Gaurire",
+  rectificare: "Rectificare",
+  bwk: "BWK",
+  sip: "SIP",
+  norte: "Norte",
+  tos: "TOS",
+  bridgeport: "Bridgeport",
+  eco: "Eco",
+  schaublin: "Schaublin",
+  hurco: "Hurco",
+  matec: "Matec",
+  parpas: "Parpas",
+  ajustare: "Ajustare",
+  filetare: "Filetare",
+  marcare: "Marcare",
+  curatare_filete: "Curatare Filete",
+  timp_per_buc: "Timp/Buc",
+  ore_totale: "Ore Totale",
+  valoare_per_buc: "Valoare/Buc",
+  valoare_totala: "Valoare Totala",
+  utilaj_folosit: "Utilaj Folosit",
+  soft_folosit: "Soft Folosit",
+  programator: "Programator",
+  locatie_dosar: "Locatie Dosar",
+  status: "Status",
+  control_status: "Control Status",
+  magazie_status: "Magazie Status",
+  created_at: "Created At",
+  created_by: "Created By",
+  updated_at: "Updated At",
+  updated_by: "Updated By",
+  recalc_at: "Recalc At",
+  actions: "Actions",
+};
+
+const SEARCHABLE_FIELDS: SearchField[] = [
+  "all",
+  "id",
+  "nr_fisa",
+  "reper",
+  "client",
+  "buc",
+  "data_intrare",
+  "data_livrare",
+  "comanda",
+  "tratament",
+  "observatii",
+  "strung_colchester",
+  "strung_cnc",
+  "freze_mici",
+  "freze_mari",
+  "gaurire",
+  "rectificare",
+  "bwk",
+  "sip",
+  "norte",
+  "tos",
+  "bridgeport",
+  "eco",
+  "schaublin",
+  "hurco",
+  "matec",
+  "parpas",
+  "ajustare",
+  "filetare",
+  "marcare",
+  "curatare_filete",
+  "timp_per_buc",
+  "ore_totale",
+  "valoare_per_buc",
+  "valoare_totala",
+  "utilaj_folosit",
+  "soft_folosit",
+  "status",
+  "control_status",
+  "magazie_status",
+  "programator",
+  "locatie_dosar",
+  "created_by",
+  "updated_by",
+  "recalc_at",
+];
 
 type ComposerDraft = {
   nr_fisa: string;
@@ -111,11 +271,53 @@ function parseOptionalNumber(value: string): number | null {
   return parsed;
 }
 
+function hasMeaningfulValue(value: unknown): boolean {
+  if (value === null || value === undefined) {
+    return false;
+  }
+  if (typeof value === "string") {
+    return value.trim().length > 0;
+  }
+  if (typeof value === "number") {
+    return value !== 0;
+  }
+  return true;
+}
+
+function shouldLoadNextPageForPosition(scrollTop: number, clientHeight: number): boolean {
+  const adaptiveThreshold = Math.max(
+    SCROLL_THRESHOLD_PX,
+    clientHeight * SCROLL_THRESHOLD_VIEWPORT_MULTIPLIER,
+  );
+  return scrollTop <= adaptiveThreshold;
+}
+
+function rowMatchesRule(row: MainRow, rule: FilterRule): boolean {
+  const cellValue: unknown = rule.field === "id" ? row.id : row[rule.field];
+  if (rule.mode === "has_value") {
+    return hasMeaningfulValue(cellValue);
+  }
+  if (rule.mode === "is_empty") {
+    return !hasMeaningfulValue(cellValue);
+  }
+  return String(cellValue ?? "").toLowerCase().includes(rule.query.trim().toLowerCase());
+}
+
+function isFilterField(columnKey: ColumnKey): columnKey is FilterField {
+  return columnKey !== "actions" && SEARCHABLE_FIELDS.includes(columnKey as SearchField);
+}
+
 function App() {
   const [rows, setRows] = useState<MainRow[]>([]);
   const [selectedRowId, setSelectedRowId] = useState<number | null>(null);
   const [searchInput, setSearchInput] = useState("");
+  const [searchField, setSearchField] = useState<SearchField>("all");
+  const [searchMode, setSearchMode] = useState<SearchMode>("contains");
   const [appliedSearchQuery, setAppliedSearchQuery] = useState("");
+  const [appliedSearchField, setAppliedSearchField] = useState<SearchField>("all");
+  const [appliedSearchMode, setAppliedSearchMode] = useState<SearchMode>("contains");
+  const [filterRules, setFilterRules] = useState<FilterRule[]>([]);
+  const [appliedFilterRules, setAppliedFilterRules] = useState<FilterRule[]>([]);
   const [isLeftNavCollapsed, setIsLeftNavCollapsed] = useState(false);
   const [status, setStatus] = useState<string>("Loading rows...");
   const [recalcStatus, setRecalcStatus] = useState<string>("Loading...");
@@ -126,6 +328,36 @@ function App() {
   const [nextPage, setNextPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMoreRows, setHasMoreRows] = useState(true);
+  const [activeHeaderColumn, setActiveHeaderColumn] = useState<ColumnKey | null>(null);
+  const [activeHeaderValue, setActiveHeaderValue] = useState("");
+  const [activeHeaderFilterField, setActiveHeaderFilterField] = useState<FilterField | null>(null);
+  const [activeHeaderFilterMode, setActiveHeaderFilterMode] = useState<SearchMode>("contains");
+  const [activeHeaderFilterQuery, setActiveHeaderFilterQuery] = useState("");
+  const [columnLabels, setColumnLabels] = useState<Record<ColumnKey, string>>(() => {
+    const defaults = { ...DEFAULT_COLUMN_LABELS };
+    if (typeof window === "undefined") {
+      return defaults;
+    }
+    try {
+      const raw = window.localStorage.getItem(COLUMN_LABELS_STORAGE_KEY);
+      if (!raw) {
+        return defaults;
+      }
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") {
+        return defaults;
+      }
+      for (const key of COLUMN_ORDER) {
+        const candidate = (parsed as Record<string, unknown>)[key];
+        if (typeof candidate === "string" && candidate.trim().length > 0) {
+          defaults[key] = candidate;
+        }
+      }
+    } catch {
+      return defaults;
+    }
+    return defaults;
+  });
   const tableWrapRef = useRef<HTMLElement | null>(null);
   const shouldStickBottomRef = useRef(true);
   const loadingPageRef = useRef<number | null>(null);
@@ -135,6 +367,8 @@ function App() {
     previousScrollTop: number;
   } | null>(null);
   const composerFirstInputRef = useRef<HTMLInputElement | null>(null);
+  const headerInputRef = useRef<HTMLInputElement | null>(null);
+  const filterIdRef = useRef(1);
 
   const selectedRow = useMemo(
     () => rows.find((row) => row.id === selectedRowId) ?? null,
@@ -146,22 +380,93 @@ function App() {
   );
   const filteredRows = useMemo(() => {
     const q = appliedSearchQuery.trim().toLowerCase();
-    if (!q) {
-      return displayRows;
+    let baseRows = displayRows;
+    if (!q && appliedSearchMode === "contains") {
+      baseRows = displayRows;
+    } else if (appliedSearchField !== "all") {
+      baseRows = displayRows.filter((row) => {
+        const cellValue: unknown =
+          appliedSearchField === "id" ? row.id : row[appliedSearchField];
+        if (appliedSearchMode === "has_value") {
+          return hasMeaningfulValue(cellValue);
+        }
+        if (appliedSearchMode === "is_empty") {
+          return !hasMeaningfulValue(cellValue);
+        }
+        return String(cellValue ?? "").toLowerCase().includes(q);
+      });
+    } else if (appliedSearchMode === "has_value" || appliedSearchMode === "is_empty") {
+      baseRows = displayRows.filter((row) => {
+        const values: unknown[] = [
+          row.nr_fisa,
+          row.reper,
+          row.client,
+          row.buc,
+          row.data_intrare,
+          row.data_livrare,
+          row.comanda,
+          row.tratament,
+          row.observatii,
+          row.strung_colchester,
+          row.strung_cnc,
+          row.freze_mici,
+          row.freze_mari,
+          row.gaurire,
+          row.rectificare,
+          row.bwk,
+          row.sip,
+          row.norte,
+          row.tos,
+          row.bridgeport,
+          row.eco,
+          row.schaublin,
+          row.hurco,
+          row.matec,
+          row.parpas,
+          row.ajustare,
+          row.filetare,
+          row.marcare,
+          row.curatare_filete,
+          row.timp_per_buc,
+          row.ore_totale,
+          row.valoare_per_buc,
+          row.valoare_totala,
+          row.utilaj_folosit,
+          row.soft_folosit,
+          row.programator,
+          row.locatie_dosar,
+          row.status,
+          row.control_status,
+          row.magazie_status,
+          row.created_by,
+          row.updated_by,
+          row.recalc_at,
+        ];
+        const hasAny = values.some((value) => hasMeaningfulValue(value));
+        return appliedSearchMode === "has_value" ? hasAny : !hasAny;
+      });
+    } else {
+      baseRows = displayRows.filter((row) => {
+        const nrFisa = String(row.nr_fisa ?? "").toLowerCase();
+        const reper = String(row.reper ?? "").toLowerCase();
+        const client = String(row.client ?? "").toLowerCase();
+        return (
+          String(row.id).includes(q) ||
+          nrFisa.includes(q) ||
+          reper.includes(q) ||
+          client.includes(q)
+        );
+      });
     }
-    return displayRows.filter((row) => {
-      const nrFisa = String(row.nr_fisa ?? "").toLowerCase();
-      const reper = String(row.reper ?? "").toLowerCase();
-      const client = String(row.client ?? "").toLowerCase();
-      return (
-        String(row.id).includes(q) ||
-        nrFisa.includes(q) ||
-        reper.includes(q) ||
-        client.includes(q)
-      );
-    });
-  }, [displayRows, appliedSearchQuery]);
-  const isSearchActive = appliedSearchQuery.trim().length > 0;
+    if (appliedFilterRules.length === 0) {
+      return baseRows;
+    }
+    return baseRows.filter((row) => appliedFilterRules.every((rule) => rowMatchesRule(row, rule)));
+  }, [displayRows, appliedSearchQuery, appliedSearchField, appliedSearchMode, appliedFilterRules]);
+  const isSearchActive =
+    appliedSearchMode === "contains"
+      ? appliedSearchQuery.trim().length > 0 || appliedFilterRules.length > 0
+      : true;
   const numericEditableFields = useMemo(
     () =>
       new Set<keyof MainRow>([
@@ -243,12 +548,110 @@ function App() {
     [],
   );
 
-  async function applySearch() {
-    const trimmed = searchInput.trim();
-    if (!trimmed) {
-      setAppliedSearchQuery("");
+  function openHeaderFilter(field: FilterField) {
+    const existing = filterRules.find((rule) => rule.field === field);
+    setActiveHeaderFilterField(field);
+    setActiveHeaderFilterMode(existing?.mode ?? "contains");
+    setActiveHeaderFilterQuery(existing?.query ?? "");
+  }
+
+  function closeHeaderFilter() {
+    setActiveHeaderFilterField(null);
+    setActiveHeaderFilterMode("contains");
+    setActiveHeaderFilterQuery("");
+  }
+
+  function applyHeaderFilter() {
+    if (!activeHeaderFilterField) {
       return;
     }
+    const normalizedQuery = activeHeaderFilterQuery.trim();
+    if (activeHeaderFilterMode === "contains" && !normalizedQuery) {
+      setStatus(`Filter value required for ${DEFAULT_COLUMN_LABELS[activeHeaderFilterField]}.`);
+      return;
+    }
+    const nextRule: FilterRule = {
+      id: `filter-${filterIdRef.current++}`,
+      field: activeHeaderFilterField,
+      mode: activeHeaderFilterMode,
+      query: normalizedQuery,
+    };
+    setFilterRules((prev) => {
+      const withoutField = prev.filter((rule) => rule.field !== activeHeaderFilterField);
+      return [...withoutField, nextRule];
+    });
+    setAppliedFilterRules((prev) => {
+      const withoutField = prev.filter((rule) => rule.field !== activeHeaderFilterField);
+      return [...withoutField, nextRule];
+    });
+    setStatus(`Filter applied on ${DEFAULT_COLUMN_LABELS[activeHeaderFilterField]}.`);
+    closeHeaderFilter();
+  }
+
+  function clearHeaderFilter(field: FilterField) {
+    setFilterRules((prev) => prev.filter((rule) => rule.field !== field));
+    setAppliedFilterRules((prev) => prev.filter((rule) => rule.field !== field));
+    if (activeHeaderFilterField === field) {
+      closeHeaderFilter();
+    }
+    setStatus(`Filter cleared on ${DEFAULT_COLUMN_LABELS[field]}.`);
+  }
+
+  async function applySearch() {
+    const trimmed = searchInput.trim();
+    if (searchMode !== "contains" && searchField === "all") {
+      setStatus("Select a column when using Has value or Is empty.");
+      return;
+    }
+    if (!trimmed && searchMode === "contains") {
+      setAppliedSearchQuery("");
+      setAppliedSearchField("all");
+      setAppliedSearchMode("contains");
+      setAppliedFilterRules(
+        filterRules.map((rule) => ({
+          ...rule,
+          query: rule.query.trim(),
+        })),
+      );
+      setStatus(filterRules.length === 0 ? "Search cleared." : "Search cleared. Column filters still active.");
+      return;
+    }
+    const normalizedRules = filterRules.map((rule) => ({
+      ...rule,
+      query: rule.query.trim(),
+    }));
+    const invalidRule = normalizedRules.find(
+      (rule) => rule.mode === "contains" && rule.query.length === 0,
+    );
+    if (invalidRule) {
+      const label = DEFAULT_COLUMN_LABELS[invalidRule.field];
+      setStatus(`Filter value required for ${label}.`);
+      return;
+    }
+    setAppliedFilterRules(normalizedRules);
+    if (searchField !== "all" || searchMode !== "contains") {
+      setAppliedSearchField(searchField);
+      setAppliedSearchMode(searchMode);
+      setAppliedSearchQuery(trimmed);
+      const fieldLabel =
+        searchField === "all" ? "All columns" : DEFAULT_COLUMN_LABELS[searchField];
+      if (searchMode === "contains") {
+        setStatus(
+          `Filtering by ${fieldLabel} for "${trimmed}" with ${normalizedRules.length} extra filter(s).`,
+        );
+      } else if (searchMode === "has_value") {
+        setStatus(
+          `Filtering rows where ${fieldLabel} has a value with ${normalizedRules.length} extra filter(s).`,
+        );
+      } else {
+        setStatus(
+          `Filtering rows where ${fieldLabel} is empty with ${normalizedRules.length} extra filter(s).`,
+        );
+      }
+      return;
+    }
+    setAppliedSearchField("all");
+    setAppliedSearchMode("contains");
     const searchResult = await searchMainRows(trimmed, 150);
     if (searchResult.ok && searchResult.rows.length > 0) {
       setRows((prev) => {
@@ -259,7 +662,9 @@ function App() {
         return [...byId.values()];
       });
       setAppliedSearchQuery(trimmed);
-      setStatus(`Found ${searchResult.rows.length} rows for "${trimmed}".`);
+      setStatus(
+        `Found ${searchResult.rows.length} rows for "${trimmed}" with ${normalizedRules.length} extra filter(s).`,
+      );
       return;
     }
     setAppliedSearchQuery(trimmed);
@@ -458,11 +863,7 @@ function App() {
       return;
     }
     const target = event.currentTarget;
-    const adaptiveThreshold = Math.max(
-      SCROLL_THRESHOLD_PX,
-      target.clientHeight * SCROLL_THRESHOLD_VIEWPORT_MULTIPLIER,
-    );
-    if (target.scrollTop <= adaptiveThreshold) {
+    if (shouldLoadNextPageForPosition(target.scrollTop, target.clientHeight)) {
       void loadPage(nextPage);
     }
   }
@@ -472,6 +873,57 @@ function App() {
     setNextPage(1);
     shouldStickBottomRef.current = true;
     void loadPage(1, true);
+  }
+
+  function beginHeaderEdit(columnKey: ColumnKey) {
+    setActiveHeaderColumn(columnKey);
+    setActiveHeaderValue(columnLabels[columnKey] ?? DEFAULT_COLUMN_LABELS[columnKey]);
+  }
+
+  function cancelHeaderEdit() {
+    setActiveHeaderColumn(null);
+    setActiveHeaderValue("");
+  }
+
+  function commitHeaderEdit(keepEditingOnError = false) {
+    if (!activeHeaderColumn) {
+      return;
+    }
+
+    const trimmed = activeHeaderValue.trim();
+    if (!trimmed) {
+      setStatus("Column name cannot be empty.");
+      if (keepEditingOnError) {
+        setTimeout(() => headerInputRef.current?.focus(), 0);
+      }
+      return;
+    }
+    if (trimmed.length > MAX_COLUMN_LABEL_LENGTH) {
+      setStatus(`Column name too long (max ${MAX_COLUMN_LABEL_LENGTH} chars).`);
+      if (keepEditingOnError) {
+        setTimeout(() => headerInputRef.current?.focus(), 0);
+      }
+      return;
+    }
+
+    setColumnLabels((prev) => ({
+      ...prev,
+      [activeHeaderColumn]: trimmed,
+    }));
+    setStatus(`Column renamed to "${trimmed}".`);
+    cancelHeaderEdit();
+  }
+
+  function onHeaderEditorKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commitHeaderEdit(true);
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      cancelHeaderEdit();
+    }
   }
 
   useEffect(() => {
@@ -484,6 +936,16 @@ function App() {
       void loadPage(nextPage);
     }
   }, [rows, hasMoreRows, isLoadingMore, nextPage, isSearchActive]);
+
+  useEffect(() => {
+    const el = tableWrapRef.current;
+    if (!el || isSearchActive || !hasMoreRows || isLoadingMore) {
+      return;
+    }
+    if (shouldLoadNextPageForPosition(el.scrollTop, el.clientHeight)) {
+      void loadPage(nextPage);
+    }
+  }, [nextPage, hasMoreRows, isLoadingMore, isSearchActive, rows]);
 
   useEffect(() => {
     const pending = prependScrollAdjustRef.current;
@@ -508,6 +970,22 @@ function App() {
       shouldStickBottomRef.current = false;
     }
   }, [rows, isLoadingMore, hasMoreRows]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(COLUMN_LABELS_STORAGE_KEY, JSON.stringify(columnLabels));
+    } catch {
+      // Ignore localStorage failures (private mode/quota).
+    }
+  }, [columnLabels]);
+
+  useEffect(() => {
+    if (!activeHeaderColumn) {
+      return;
+    }
+    headerInputRef.current?.focus();
+    headerInputRef.current?.select();
+  }, [activeHeaderColumn]);
 
   function selectRow(row: MainRow) {
     setSelectedRowId(row.id);
@@ -679,18 +1157,57 @@ function App() {
             <p className="sparse-hint">Empty cells reflect source XLSX data.</p>
           </div>
           <div className="toolbar-actions">
-            <input
-              className="search-input"
-              type="search"
-              placeholder="Search ID, fisa, reper, client"
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  void applySearch();
-                }
-              }}
-            />
+            <div className="search-field">
+              <select
+                className="search-column-select"
+                value={searchField}
+                onChange={(event) => setSearchField(event.target.value as SearchField)}
+                aria-label="Search column"
+                title="Select search column"
+              >
+                {SEARCHABLE_FIELDS.map((field) => (
+                  <option key={field} value={field}>
+                    {field === "all" ? "All columns" : DEFAULT_COLUMN_LABELS[field]}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="search-mode-select"
+                value={searchMode}
+                onChange={(event) => setSearchMode(event.target.value as SearchMode)}
+                aria-label="Search mode"
+                title="Select search mode"
+              >
+                <option value="contains">Contains</option>
+                <option value="has_value">Has value</option>
+                <option value="is_empty">Is empty</option>
+              </select>
+              <div className="search-input-wrap">
+                <input
+                  className="search-input"
+                  type="text"
+                  placeholder={searchMode === "contains" ? "Search value" : "Value ignored for this mode"}
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  disabled={searchMode !== "contains"}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      void applySearch();
+                    }
+                  }}
+                />
+                {searchInput.length > 0 && (
+                  <button
+                    type="button"
+                    className="search-clear-btn"
+                    aria-label="Clear search input"
+                    onClick={() => setSearchInput("")}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            </div>
             <button onClick={() => void applySearch()}>Search</button>
             <button onClick={refreshRows}>Refresh</button>
             <button onClick={() => void loadRecalc()}>Recalc Status</button>
@@ -705,53 +1222,114 @@ function App() {
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Nr Fisa</th>
-                <th>Reper</th>
-                <th>Client</th>
-                <th>Buc</th>
-                <th>Data Intrare</th>
-                <th>Data Livrare</th>
-                <th>Comanda</th>
-                <th>Tratament</th>
-                <th>Observatii</th>
-                <th>Strung Colchester</th>
-                <th>Strung CNC</th>
-                <th>Freze Mici</th>
-                <th>Freze Mari</th>
-                <th>Gaurire</th>
-                <th>Rectificare</th>
-                <th>BWK</th>
-                <th>SIP</th>
-                <th>Norte</th>
-                <th>TOS</th>
-                <th>Bridgeport</th>
-                <th>Eco</th>
-                <th>Schaublin</th>
-                <th>Hurco</th>
-                <th>Matec</th>
-                <th>Parpas</th>
-                <th>Ajustare</th>
-                <th>Filetare</th>
-                <th>Marcare</th>
-                <th>Curatare Filete</th>
-                <th>Timp/Buc</th>
-                <th>Ore Totale</th>
-                <th>Valoare/Buc</th>
-                <th>Valoare Totala</th>
-                <th>Utilaj Folosit</th>
-                <th>Soft Folosit</th>
-                <th>Programator</th>
-                <th>Locatie Dosar</th>
-                <th>Status</th>
-                <th>Control Status</th>
-                <th>Magazie Status</th>
-                <th>Created At</th>
-                <th>Created By</th>
-                <th>Updated At</th>
-                <th>Updated By</th>
-                <th>Recalc At</th>
-                <th>Actions</th>
+                {COLUMN_ORDER.map((columnKey) => (
+                  <th
+                    key={columnKey}
+                    onDoubleClick={() => beginHeaderEdit(columnKey)}
+                    title="Double-click to edit column label"
+                  >
+                    {activeHeaderColumn === columnKey ? (
+                      <div className="header-editor">
+                        <input
+                          ref={headerInputRef}
+                          className="header-editor-input"
+                          value={activeHeaderValue}
+                          onChange={(event) => setActiveHeaderValue(event.target.value)}
+                          onKeyDown={onHeaderEditorKeyDown}
+                          onBlur={() => commitHeaderEdit(true)}
+                        />
+                        <button
+                          type="button"
+                          className="header-editor-btn"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => commitHeaderEdit(true)}
+                          title="Save"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          className="header-editor-btn"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={cancelHeaderEdit}
+                          title="Cancel"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="header-title-wrap">
+                        <span className="editable-header-label">
+                          {columnLabels[columnKey] ?? DEFAULT_COLUMN_LABELS[columnKey]}
+                        </span>
+                        {isFilterField(columnKey) && (
+                          <button
+                            type="button"
+                            className={`header-filter-btn ${appliedFilterRules.some((rule) => rule.field === columnKey) ? "active" : ""}`}
+                            title="Column filter"
+                            aria-label={`Filter ${DEFAULT_COLUMN_LABELS[columnKey]}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openHeaderFilter(columnKey);
+                            }}
+                          >
+                            ▾
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {isFilterField(columnKey) && activeHeaderFilterField === columnKey && (
+                      <div
+                        className="header-filter-popover"
+                        onClick={(event) => event.stopPropagation()}
+                        onDoubleClick={(event) => event.stopPropagation()}
+                      >
+                        <select
+                          className="header-filter-select"
+                          value={activeHeaderFilterMode}
+                          onChange={(event) => setActiveHeaderFilterMode(event.target.value as SearchMode)}
+                        >
+                          <option value="contains">Contains</option>
+                          <option value="has_value">Has value</option>
+                          <option value="is_empty">Is empty</option>
+                        </select>
+                        <input
+                          className="header-filter-input"
+                          type="text"
+                          placeholder={activeHeaderFilterMode === "contains" ? "Filter value" : "Value ignored"}
+                          value={activeHeaderFilterQuery}
+                          disabled={activeHeaderFilterMode !== "contains"}
+                          onChange={(event) => setActiveHeaderFilterQuery(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              applyHeaderFilter();
+                            }
+                            if (event.key === "Escape") {
+                              event.preventDefault();
+                              closeHeaderFilter();
+                            }
+                          }}
+                        />
+                        <div className="header-filter-actions">
+                          <button type="button" className="header-editor-btn" onClick={applyHeaderFilter}>
+                            Apply
+                          </button>
+                          <button
+                            type="button"
+                            className="header-editor-btn"
+                            onClick={() => clearHeaderFilter(columnKey)}
+                          >
+                            Clear
+                          </button>
+                          <button type="button" className="header-editor-btn" onClick={closeHeaderFilter}>
+                            Close
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
