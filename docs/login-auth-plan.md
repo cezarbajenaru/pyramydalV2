@@ -55,6 +55,39 @@ Add core tables:
 - `app.audit_log`
   - `actor_user_id`, `action`, `resource_type`, `resource_id`, `details_json`, `created_at`
 
+### Change Traceability Requirements (Main Rows)
+
+- Track every `main_rows` create/update/delete as user-attributed events.
+- Capture field-level before/after for updates (diff, not full snapshot only).
+- Required metadata per event:
+  - `actor_user_id`
+  - `actor_role`
+  - `session_id`
+  - `request_id`
+  - `ip`
+  - `user_agent`
+  - `resource_type` (`main_rows`)
+  - `resource_id` (`main_rows.id`)
+  - `action` (`create|update|delete|recalc_trigger`)
+  - `changed_fields_json` (before/after pairs)
+  - `created_at`
+- Root can view global history; admin sees scoped history; user sees own actions (or no audit UI, policy decision).
+- Retention target: minimum 12 months hot + archive strategy for long-term compliance.
+
+Recommended table:
+- `app.main_rows_change_log`
+  - `id BIGSERIAL`
+  - `main_row_id BIGINT`
+  - `actor_user_id BIGINT`
+  - `actor_role VARCHAR(50)`
+  - `action VARCHAR(50)`
+  - `changed_fields_json JSONB`
+  - `session_id UUID`
+  - `request_id UUID`
+  - `ip INET`
+  - `user_agent TEXT`
+  - `created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP`
+
 Optional later:
 - `app.user_factory_scope` if per-factory isolation needed.
 

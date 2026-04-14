@@ -1,9 +1,10 @@
 .app-shell {
   display: grid;
-  grid-template-columns: 220px 1fr 280px;
-  min-height: 100vh;
+  grid-template-columns: 220px 1fr 6px 420px;
+  height: 100vh;
   color: #e5e7eb;
   background: #0f172a;
+  overflow: hidden;
 }
 
 .left-nav,
@@ -13,9 +14,35 @@
   padding: 16px;
 }
 
+.left-nav {
+  transition: width 140ms ease;
+}
+
+.left-nav.collapsed {
+  padding: 10px 8px;
+}
+
+.collapse-nav-btn {
+  width: 100%;
+  margin-bottom: 10px;
+  background: #374151;
+}
+
 .properties {
   border-right: none;
   border-left: 1px solid #1f2937;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.panel-resizer {
+  width: 6px;
+  cursor: col-resize;
+  background: #1f2937;
+}
+
+.panel-resizer:hover {
+  background: #374151;
 }
 
 .left-nav h1 {
@@ -63,6 +90,11 @@
   margin: 4px 0 0 0;
   color: #93c5fd;
   font-size: 0.85rem;
+}
+
+.sparse-hint {
+  color: #9ca3af;
+  font-size: 0.75rem;
 }
 
 .toolbar-actions {
@@ -163,6 +195,10 @@ tbody tr:hover {
   box-sizing: border-box;
 }
 
+.empty-cell {
+  color: #6b7280;
+}
+
 .small-btn {
   padding: 6px 8px;
   font-size: 0.78rem;
@@ -177,7 +213,7 @@ tbody tr:hover {
 
 .composer-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 120px;
+  grid-template-columns: repeat(6, minmax(140px, 1fr));
   gap: 8px;
   margin-top: 8px;
 }
@@ -212,6 +248,17 @@ tbody tr:hover {
   border-radius: 8px;
   padding: 8px;
   box-sizing: border-box;
+}
+
+.properties-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+}
+
+.properties-field {
+  display: grid;
+  grid-template-columns: 1fr;
 }
 
 .recalc-card {

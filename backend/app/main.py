@@ -1,6 +1,6 @@
 import json
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 import boto3
 from fastapi import FastAPI, HTTPException
@@ -31,6 +31,45 @@ class UpdateMainRowRequest(BaseModel):
     reper: str | None = Field(default=None, min_length=1, max_length=100)
     client: str | None = Field(default=None, min_length=1, max_length=200)
     buc: float | None = Field(default=None, ge=0)
+    data_intrare: date | None = None
+    data_livrare: date | None = None
+    comanda: str | None = Field(default=None, max_length=100)
+    tratament: str | None = Field(default=None, max_length=200)
+    observatii: str | None = None
+    strung_colchester: float | None = Field(default=None, ge=0)
+    strung_cnc: float | None = Field(default=None, ge=0)
+    freze_mici: float | None = Field(default=None, ge=0)
+    freze_mari: float | None = Field(default=None, ge=0)
+    gaurire: float | None = Field(default=None, ge=0)
+    rectificare: float | None = Field(default=None, ge=0)
+    bwk: float | None = Field(default=None, ge=0)
+    sip: float | None = Field(default=None, ge=0)
+    norte: float | None = Field(default=None, ge=0)
+    tos: float | None = Field(default=None, ge=0)
+    bridgeport: float | None = Field(default=None, ge=0)
+    eco: float | None = Field(default=None, ge=0)
+    schaublin: float | None = Field(default=None, ge=0)
+    hurco: float | None = Field(default=None, ge=0)
+    matec: float | None = Field(default=None, ge=0)
+    parpas: float | None = Field(default=None, ge=0)
+    ajustare: float | None = Field(default=None, ge=0)
+    filetare: float | None = Field(default=None, ge=0)
+    marcare: float | None = Field(default=None, ge=0)
+    curatare_filete: float | None = Field(default=None, ge=0)
+    timp_per_buc: float | None = Field(default=None, ge=0)
+    ore_totale: float | None = Field(default=None, ge=0)
+    valoare_per_buc: float | None = Field(default=None, ge=0)
+    valoare_totala: float | None = Field(default=None, ge=0)
+    utilaj_folosit: str | None = Field(default=None, max_length=100)
+    soft_folosit: str | None = Field(default=None, max_length=100)
+    programator: str | None = Field(default=None, max_length=100)
+    locatie_dosar: str | None = Field(default=None, max_length=200)
+    status: str | None = Field(default=None, max_length=50)
+    control_status: str | None = Field(default=None, max_length=50)
+    magazie_status: str | None = Field(default=None, max_length=50)
+    created_by: str | None = Field(default=None, max_length=100)
+    updated_by: str | None = Field(default=None, max_length=100)
+    recalc_at: datetime | None = None
 
 
 class CreateMainRowRequest(BaseModel):
@@ -38,11 +77,155 @@ class CreateMainRowRequest(BaseModel):
     reper: str = Field(min_length=1, max_length=100)
     client: str = Field(min_length=1, max_length=200)
     buc: float = Field(ge=0)
+    data_intrare: date | None = None
+    data_livrare: date | None = None
+    comanda: str | None = Field(default=None, max_length=100)
+    tratament: str | None = Field(default=None, max_length=200)
+    observatii: str | None = None
+    strung_colchester: float | None = Field(default=None, ge=0)
+    strung_cnc: float | None = Field(default=None, ge=0)
+    freze_mici: float | None = Field(default=None, ge=0)
+    freze_mari: float | None = Field(default=None, ge=0)
+    gaurire: float | None = Field(default=None, ge=0)
+    rectificare: float | None = Field(default=None, ge=0)
+    bwk: float | None = Field(default=None, ge=0)
+    sip: float | None = Field(default=None, ge=0)
+    norte: float | None = Field(default=None, ge=0)
+    tos: float | None = Field(default=None, ge=0)
+    bridgeport: float | None = Field(default=None, ge=0)
+    eco: float | None = Field(default=None, ge=0)
+    schaublin: float | None = Field(default=None, ge=0)
+    hurco: float | None = Field(default=None, ge=0)
+    matec: float | None = Field(default=None, ge=0)
+    parpas: float | None = Field(default=None, ge=0)
+    ajustare: float | None = Field(default=None, ge=0)
+    filetare: float | None = Field(default=None, ge=0)
+    marcare: float | None = Field(default=None, ge=0)
+    curatare_filete: float | None = Field(default=None, ge=0)
+    status: str | None = Field(default="in_lucru", max_length=50)
+    control_status: str | None = Field(default=None, max_length=50)
+    magazie_status: str | None = Field(default=None, max_length=50)
 
 
 class TriggerRecalcRequest(BaseModel):
     triggered_by: str = "manual"
     triggered_by_user: str | None = None
+
+
+SELECT_MAIN_ROW_COLUMNS = [
+    "id",
+    "nr_fisa",
+    "reper",
+    "client",
+    "buc",
+    "data_intrare",
+    "data_livrare",
+    "comanda",
+    "tratament",
+    "observatii",
+    "strung_colchester",
+    "strung_cnc",
+    "freze_mici",
+    "freze_mari",
+    "gaurire",
+    "rectificare",
+    "bwk",
+    "sip",
+    "norte",
+    "tos",
+    "bridgeport",
+    "eco",
+    "schaublin",
+    "hurco",
+    "matec",
+    "parpas",
+    "ajustare",
+    "filetare",
+    "marcare",
+    "curatare_filete",
+    "timp_per_buc",
+    "ore_totale",
+    "valoare_per_buc",
+    "valoare_totala",
+    "utilaj_folosit",
+    "soft_folosit",
+    "programator",
+    "locatie_dosar",
+    "status",
+    "control_status",
+    "magazie_status",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "updated_by",
+    "recalc_at",
+]
+
+EDITABLE_MAIN_ROW_FIELDS = {
+    "nr_fisa",
+    "reper",
+    "client",
+    "buc",
+    "data_intrare",
+    "data_livrare",
+    "comanda",
+    "tratament",
+    "observatii",
+    "strung_colchester",
+    "strung_cnc",
+    "freze_mici",
+    "freze_mari",
+    "gaurire",
+    "rectificare",
+    "bwk",
+    "sip",
+    "norte",
+    "tos",
+    "bridgeport",
+    "eco",
+    "schaublin",
+    "hurco",
+    "matec",
+    "parpas",
+    "ajustare",
+    "filetare",
+    "marcare",
+    "curatare_filete",
+    "timp_per_buc",
+    "ore_totale",
+    "valoare_per_buc",
+    "valoare_totala",
+    "utilaj_folosit",
+    "soft_folosit",
+    "programator",
+    "locatie_dosar",
+    "status",
+    "control_status",
+    "magazie_status",
+    "created_by",
+    "updated_by",
+    "recalc_at",
+}
+
+
+def serialize_main_row(row: tuple[object, ...]) -> dict[str, object | None]:
+    payload: dict[str, object | None] = {}
+    for index, column in enumerate(SELECT_MAIN_ROW_COLUMNS):
+        value = row[index]
+        if isinstance(value, datetime):
+            payload[column] = value.isoformat()
+        elif isinstance(value, date):
+            payload[column] = value.isoformat()
+        elif isinstance(value, (int, float)):
+            payload[column] = float(value)
+        else:
+            payload[column] = value
+    return payload
+
+
+def validate_main_row_dates(payload: UpdateMainRowRequest | CreateMainRowRequest):
+    if payload.data_intrare and payload.data_livrare and payload.data_livrare < payload.data_intrare:
+        raise HTTPException(status_code=400, detail="data_livrare must be >= data_intrare")
 
 
 @app.get("/health")
@@ -55,8 +238,8 @@ def list_main_rows(page: int = 1, page_size: int = 20):
     offset = (page - 1) * page_size
     with db_cursor() as (_, cur):
         cur.execute(
-            """
-            SELECT id, nr_fisa, reper, client, buc, timp_per_buc, ore_totale, updated_at
+            f"""
+            SELECT {", ".join(SELECT_MAIN_ROW_COLUMNS)}
             FROM app.main_rows
             WHERE deleted_at IS NULL
             ORDER BY id DESC
@@ -66,40 +249,18 @@ def list_main_rows(page: int = 1, page_size: int = 20):
         )
         rows = cur.fetchall()
 
-    return {
-        "rows": [
-            {
-                "id": row[0],
-                "nr_fisa": row[1],
-                "reper": row[2],
-                "client": row[3],
-                "buc": float(row[4]) if row[4] is not None else 0.0,
-                "timp_per_buc": float(row[5]) if row[5] is not None else 0.0,
-                "ore_totale": float(row[6]) if row[6] is not None else 0.0,
-                "updated_at": row[7].isoformat() if row[7] else datetime.utcnow().isoformat(),
-            }
-            for row in rows
-        ]
-    }
+    return {"rows": [serialize_main_row(row) for row in rows]}
 
 
 @app.patch("/api/main-rows/{row_id}")
 def patch_main_row(row_id: int, payload: UpdateMainRowRequest):
+    validate_main_row_dates(payload)
     updates: list[str] = []
     values: list[object] = []
-
-    if payload.nr_fisa is not None:
-        updates.append("nr_fisa = %s")
-        values.append(payload.nr_fisa)
-    if payload.reper is not None:
-        updates.append("reper = %s")
-        values.append(payload.reper)
-    if payload.client is not None:
-        updates.append("client = %s")
-        values.append(payload.client)
-    if payload.buc is not None:
-        updates.append("buc = %s")
-        values.append(payload.buc)
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        if key in EDITABLE_MAIN_ROW_FIELDS:
+            updates.append(f"{key} = %s")
+            values.append(value)
 
     if not updates:
         raise HTTPException(status_code=400, detail="No fields provided")
@@ -126,30 +287,27 @@ def patch_main_row(row_id: int, payload: UpdateMainRowRequest):
 
 @app.post("/api/main-rows")
 def create_main_row(payload: CreateMainRowRequest):
+    validate_main_row_dates(payload)
+    body = payload.model_dump()
+    insert_columns = [key for key in body.keys() if key in EDITABLE_MAIN_ROW_FIELDS]
+    insert_values = [body[column] for column in insert_columns]
+    insert_columns.extend(["ore_totale", "created_by", "updated_by"])
+    insert_values.extend([0, "ui-api", "ui-api"])
+    placeholders = ", ".join(["%s"] * len(insert_columns))
+
     with db_cursor() as (conn, cur):
         cur.execute(
-            """
-            INSERT INTO app.main_rows (nr_fisa, reper, client, buc, ore_totale, created_by, updated_by)
-            VALUES (%s, %s, %s, %s, 0, %s, %s)
-            RETURNING id, nr_fisa, reper, client, buc, timp_per_buc, ore_totale, updated_at
+            f"""
+            INSERT INTO app.main_rows ({", ".join(insert_columns)})
+            VALUES ({placeholders})
+            RETURNING {", ".join(SELECT_MAIN_ROW_COLUMNS)}
             """,
-            (payload.nr_fisa, payload.reper, payload.client, payload.buc, "ui-api", "ui-api"),
+            tuple(insert_values),
         )
         row = cur.fetchone()
         conn.commit()
 
-    return {
-        "row": {
-            "id": row[0],
-            "nr_fisa": row[1],
-            "reper": row[2],
-            "client": row[3],
-            "buc": float(row[4]) if row[4] is not None else 0.0,
-            "timp_per_buc": float(row[5]) if row[5] is not None else 0.0,
-            "ore_totale": float(row[6]) if row[6] is not None else 0.0,
-            "updated_at": row[7].isoformat() if row[7] else datetime.utcnow().isoformat(),
-        }
-    }
+    return {"row": serialize_main_row(row)}
 
 
 @app.delete("/api/main-rows/{row_id}")

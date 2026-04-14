@@ -6,9 +6,47 @@ export type MainRow = {
   reper: string;
   client: string;
   buc: number;
-  timp_per_buc: number;
-  ore_totale: number;
-  updated_at: string;
+  data_intrare: string | null;
+  data_livrare: string | null;
+  comanda: string | null;
+  tratament: string | null;
+  observatii: string | null;
+  strung_colchester: number | null;
+  strung_cnc: number | null;
+  freze_mici: number | null;
+  freze_mari: number | null;
+  gaurire: number | null;
+  rectificare: number | null;
+  bwk: number | null;
+  sip: number | null;
+  norte: number | null;
+  tos: number | null;
+  bridgeport: number | null;
+  eco: number | null;
+  schaublin: number | null;
+  hurco: number | null;
+  matec: number | null;
+  parpas: number | null;
+  ajustare: number | null;
+  filetare: number | null;
+  marcare: number | null;
+  curatare_filete: number | null;
+  timp_per_buc: number | null;
+  ore_totale: number | null;
+  valoare_per_buc: number | null;
+  valoare_totala: number | null;
+  utilaj_folosit: string | null;
+  soft_folosit: string | null;
+  programator: string | null;
+  locatie_dosar: string | null;
+  status: string | null;
+  control_status: string | null;
+  magazie_status: string | null;
+  created_at: string | null;
+  created_by: string | null;
+  updated_at: string | null;
+  updated_by: string | null;
+  recalc_at: string | null;
 };
 
 type RowsResponse = {
@@ -34,7 +72,7 @@ export async function fetchMainRows(
 
 export async function saveMainRowUpdate(
   id: number,
-  patch: Partial<Pick<MainRow, "nr_fisa" | "reper" | "client" | "buc">>,
+  patch: Partial<Omit<MainRow, "id" | "created_at" | "updated_at">>,
 ) {
   try {
     const response = await fetch(`${runtimeConfig.baseUrl}/api/main-rows/${id}`, {
@@ -64,6 +102,34 @@ export async function createMainRow(payload: {
   reper: string;
   client: string;
   buc: number;
+  data_intrare?: string | null;
+  data_livrare?: string | null;
+  comanda?: string | null;
+  tratament?: string | null;
+  observatii?: string | null;
+  strung_colchester?: number | null;
+  strung_cnc?: number | null;
+  freze_mici?: number | null;
+  freze_mari?: number | null;
+  gaurire?: number | null;
+  rectificare?: number | null;
+  bwk?: number | null;
+  sip?: number | null;
+  norte?: number | null;
+  tos?: number | null;
+  bridgeport?: number | null;
+  eco?: number | null;
+  schaublin?: number | null;
+  hurco?: number | null;
+  matec?: number | null;
+  parpas?: number | null;
+  ajustare?: number | null;
+  filetare?: number | null;
+  marcare?: number | null;
+  curatare_filete?: number | null;
+  status?: string | null;
+  control_status?: string | null;
+  magazie_status?: string | null;
 }): Promise<{ ok: boolean; row?: MainRow; message: string; mode: "aws" | "localstack" }> {
   try {
     const response = await fetch(`${runtimeConfig.baseUrl}/api/main-rows`, {
