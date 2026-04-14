@@ -70,6 +70,53 @@ export async function fetchMainRows(
   return { rows: payload.rows, mode: runtimeConfig.mode };
 }
 
+export async function fetchMainRowById(id: number): Promise<{
+  ok: boolean;
+  row?: MainRow;
+  message: string;
+  mode: "aws" | "localstack";
+}> {
+  try {
+    const response = await fetch(`${runtimeConfig.baseUrl}/api/main-rows/${id}`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        message: `Server returned ${response.status}`,
+        mode: runtimeConfig.mode,
+      };
+    }
+    const payload = (await response.json()) as { row: MainRow };
+    return { ok: true, row: payload.row, message: "Found", mode: runtimeConfig.mode };
+  } catch {
+    return { ok: false, message: "Network error", mode: runtimeConfig.mode };
+  }
+}
+
+export async function searchMainRows(query: string, limit = 100): Promise<{
+  ok: boolean;
+  rows: MainRow[];
+  message: string;
+  mode: "aws" | "localstack";
+}> {
+  try {
+    const response = await fetch(
+      `${runtimeConfig.baseUrl}/api/main-rows-search?query=${encodeURIComponent(query)}&limit=${limit}`,
+    );
+    if (!response.ok) {
+      return {
+        ok: false,
+        rows: [],
+        message: `Server returned ${response.status}`,
+        mode: runtimeConfig.mode,
+      };
+    }
+    const payload = (await response.json()) as { rows: MainRow[] };
+    return { ok: true, rows: payload.rows, message: "Found", mode: runtimeConfig.mode };
+  } catch {
+    return { ok: false, rows: [], message: "Network error", mode: runtimeConfig.mode };
+  }
+}
+
 export async function saveMainRowUpdate(
   id: number,
   patch: Partial<Omit<MainRow, "id" | "created_at" | "updated_at">>,

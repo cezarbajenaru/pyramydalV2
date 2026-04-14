@@ -252,6 +252,51 @@ def list_main_rows(page: int = 1, page_size: int = 20):
     return {"rows": [serialize_main_row(row) for row in rows]}
 
 
+@app.get("/api/main-rows/{row_id}")
+def get_main_row(row_id: int):
+    with db_cursor() as (_, cur):
+        cur.execute(
+            f"""
+            SELECT {", ".join(SELECT_MAIN_ROW_COLUMNS)}
+            FROM app.main_rows
+            WHERE id = %s AND deleted_at IS NULL
+            """,
+            (row_id,),
+        )
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+    return {"row": serialize_main_row(row)}
+
+
+@app.get("/api/main-rows-search")
+def search_main_rows(query: str, limit: int = 100):
+    safe_limit = max(1, min(limit, 500))
+    q = query.strip()
+    if not q:
+        return {"rows": []}
+    like_query = f"%{q}%"
+    with db_cursor() as (_, cur):
+        cur.execute(
+            f"""
+            SELECT {", ".join(SELECT_MAIN_ROW_COLUMNS)}
+            FROM app.main_rows
+            WHERE deleted_at IS NULL
+              AND (
+                CAST(id AS TEXT) ILIKE %s
+                OR nr_fisa ILIKE %s
+                OR reper ILIKE %s
+                OR client ILIKE %s
+              )
+            ORDER BY id DESC
+            LIMIT %s
+            """,
+            (like_query, like_query, like_query, like_query, safe_limit),
+        )
+        rows = cur.fetchall()
+    return {"rows": [serialize_main_row(row) for row in rows]}
+
+
 @app.patch("/api/main-rows/{row_id}")
 def patch_main_row(row_id: int, payload: UpdateMainRowRequest):
     validate_main_row_dates(payload)

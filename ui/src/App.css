@@ -1,19 +1,17 @@
 .app-shell {
   display: grid;
-  grid-template-columns: 220px 1fr 6px 420px;
+  grid-template-columns: 220px 1fr;
   height: 100vh;
   color: #e5e7eb;
   background: #0f172a;
   overflow: hidden;
 }
 
-.left-nav,
-.properties {
+.left-nav {
   background: #111827;
   border-right: 1px solid #1f2937;
   padding: 16px;
 }
-
 .left-nav {
   transition: width 140ms ease;
 }
@@ -25,23 +23,6 @@
 .collapse-nav-btn {
   width: 100%;
   margin-bottom: 10px;
-  background: #374151;
-}
-
-.properties {
-  border-right: none;
-  border-left: 1px solid #1f2937;
-  height: 100vh;
-  overflow-y: auto;
-}
-
-.panel-resizer {
-  width: 6px;
-  cursor: col-resize;
-  background: #1f2937;
-}
-
-.panel-resizer:hover {
   background: #374151;
 }
 
@@ -160,11 +141,17 @@ table {
 
 th,
 td {
-  border-bottom: 1px solid #1f2937;
+  border-bottom: 1px solid #334155;
+  border-right: 1px solid #273449;
   padding: 10px;
   font-size: 0.88rem;
   text-align: left;
   white-space: nowrap;
+}
+
+th:last-child,
+td:last-child {
+  border-right: none;
 }
 
 thead {
@@ -178,7 +165,11 @@ tbody tr {
 }
 
 tbody tr:hover {
-  background: #1e293b;
+  background: #1f2f45;
+}
+
+tbody tr:nth-child(even) {
+  background: #0f1a2d;
 }
 
 .selected-row {
@@ -193,6 +184,20 @@ tbody tr:hover {
   border-radius: 6px;
   padding: 6px 8px;
   box-sizing: border-box;
+}
+
+.cell-inline-editor {
+  width: 100%;
+  background: #0b1220;
+  border: 1px solid #60a5fa;
+  color: #e5e7eb;
+  border-radius: 6px;
+  padding: 4px 6px;
+  box-sizing: border-box;
+}
+
+.editable-cell {
+  cursor: text;
 }
 
 .empty-cell {
@@ -232,33 +237,6 @@ tbody tr:hover {
   color: #93c5fd;
   border-top: 1px solid #1f2937;
   background: #111827;
-}
-
-.properties h2,
-.properties h3 {
-  margin-top: 0;
-}
-
-.properties input {
-  width: 100%;
-  margin: 6px 0 10px;
-  background: #0b1220;
-  border: 1px solid #374151;
-  color: #e5e7eb;
-  border-radius: 8px;
-  padding: 8px;
-  box-sizing: border-box;
-}
-
-.properties-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 4px;
-}
-
-.properties-field {
-  display: grid;
-  grid-template-columns: 1fr;
 }
 
 .recalc-card {

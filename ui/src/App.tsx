@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type UIEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type UIEvent } from "react";
 import "./App.css";
 import {
   createMainRow,
   deleteMainRow,
+  fetchMainRowById,
   fetchMainRows,
   fetchRecalcStatus,
   saveMainRowUpdate,
+  searchMainRows,
   type MainRow,
 } from "./api/mainRows";
 import { runtimeConfig } from "./config";
@@ -51,32 +53,6 @@ type ComposerDraft = {
   status: string;
   control_status: string;
   magazie_status: string;
-} & Record<MachineField, string>;
-
-type RowEditDraft = {
-  nr_fisa: string;
-  reper: string;
-  client: string;
-  buc: string;
-  data_intrare: string;
-  data_livrare: string;
-  comanda: string;
-  tratament: string;
-  observatii: string;
-  status: string;
-  control_status: string;
-  magazie_status: string;
-  timp_per_buc: string;
-  ore_totale: string;
-  valoare_per_buc: string;
-  valoare_totala: string;
-  utilaj_folosit: string;
-  soft_folosit: string;
-  programator: string;
-  locatie_dosar: string;
-  created_by: string;
-  updated_by: string;
-  recalc_at: string;
 } & Record<MachineField, string>;
 
 const EMPTY_COMPOSER_DRAFT: ComposerDraft = {
@@ -135,78 +111,22 @@ function parseOptionalNumber(value: string): number | null {
   return parsed;
 }
 
-function toInput(value: unknown): string {
-  if (value === null || value === undefined) {
-    return "";
-  }
-  return String(value);
-}
-
-function rowToEditDraft(row: MainRow): RowEditDraft {
-  return {
-    nr_fisa: toInput(row.nr_fisa),
-    reper: toInput(row.reper),
-    client: toInput(row.client),
-    buc: toInput(row.buc),
-    data_intrare: toInput(row.data_intrare),
-    data_livrare: toInput(row.data_livrare),
-    comanda: toInput(row.comanda),
-    tratament: toInput(row.tratament),
-    observatii: toInput(row.observatii),
-    status: toInput(row.status),
-    control_status: toInput(row.control_status),
-    magazie_status: toInput(row.magazie_status),
-    timp_per_buc: toInput(row.timp_per_buc),
-    ore_totale: toInput(row.ore_totale),
-    valoare_per_buc: toInput(row.valoare_per_buc),
-    valoare_totala: toInput(row.valoare_totala),
-    utilaj_folosit: toInput(row.utilaj_folosit),
-    soft_folosit: toInput(row.soft_folosit),
-    programator: toInput(row.programator),
-    locatie_dosar: toInput(row.locatie_dosar),
-    created_by: toInput(row.created_by),
-    updated_by: toInput(row.updated_by),
-    recalc_at: toInput(row.recalc_at),
-    strung_colchester: toInput(row.strung_colchester),
-    strung_cnc: toInput(row.strung_cnc),
-    freze_mici: toInput(row.freze_mici),
-    freze_mari: toInput(row.freze_mari),
-    gaurire: toInput(row.gaurire),
-    rectificare: toInput(row.rectificare),
-    bwk: toInput(row.bwk),
-    sip: toInput(row.sip),
-    norte: toInput(row.norte),
-    tos: toInput(row.tos),
-    bridgeport: toInput(row.bridgeport),
-    eco: toInput(row.eco),
-    schaublin: toInput(row.schaublin),
-    hurco: toInput(row.hurco),
-    matec: toInput(row.matec),
-    parpas: toInput(row.parpas),
-    ajustare: toInput(row.ajustare),
-    filetare: toInput(row.filetare),
-    marcare: toInput(row.marcare),
-    curatare_filete: toInput(row.curatare_filete),
-  };
-}
-
 function App() {
   const [rows, setRows] = useState<MainRow[]>([]);
   const [selectedRowId, setSelectedRowId] = useState<number | null>(null);
-  const [editingDraft, setEditingDraft] = useState<RowEditDraft | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const [appliedSearchQuery, setAppliedSearchQuery] = useState("");
   const [isLeftNavCollapsed, setIsLeftNavCollapsed] = useState(false);
   const [status, setStatus] = useState<string>("Loading rows...");
   const [recalcStatus, setRecalcStatus] = useState<string>("Loading...");
   const [isSaving, setIsSaving] = useState(false);
+  const [activeCell, setActiveCell] = useState<{ rowId: number; field: keyof MainRow } | null>(null);
+  const [activeCellValue, setActiveCellValue] = useState("");
   const [composerDraft, setComposerDraft] = useState<ComposerDraft>(EMPTY_COMPOSER_DRAFT);
   const [nextPage, setNextPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMoreRows, setHasMoreRows] = useState(true);
-  const [propertiesWidth, setPropertiesWidth] = useState(420);
   const tableWrapRef = useRef<HTMLElement | null>(null);
-  const propertiesResizeRef = useRef(false);
   const shouldStickBottomRef = useRef(true);
   const loadingPageRef = useRef<number | null>(null);
   const loadedPagesRef = useRef<Set<number>>(new Set());
@@ -230,18 +150,241 @@ function App() {
       return displayRows;
     }
     return displayRows.filter((row) => {
+      const nrFisa = String(row.nr_fisa ?? "").toLowerCase();
+      const reper = String(row.reper ?? "").toLowerCase();
+      const client = String(row.client ?? "").toLowerCase();
       return (
         String(row.id).includes(q) ||
-        row.nr_fisa.toLowerCase().includes(q) ||
-        row.reper.toLowerCase().includes(q) ||
-        row.client.toLowerCase().includes(q)
+        nrFisa.includes(q) ||
+        reper.includes(q) ||
+        client.includes(q)
       );
     });
   }, [displayRows, appliedSearchQuery]);
   const isSearchActive = appliedSearchQuery.trim().length > 0;
+  const numericEditableFields = useMemo(
+    () =>
+      new Set<keyof MainRow>([
+        "buc",
+        "strung_colchester",
+        "strung_cnc",
+        "freze_mici",
+        "freze_mari",
+        "gaurire",
+        "rectificare",
+        "bwk",
+        "sip",
+        "norte",
+        "tos",
+        "bridgeport",
+        "eco",
+        "schaublin",
+        "hurco",
+        "matec",
+        "parpas",
+        "ajustare",
+        "filetare",
+        "marcare",
+        "curatare_filete",
+        "timp_per_buc",
+        "ore_totale",
+        "valoare_per_buc",
+        "valoare_totala",
+      ]),
+    [],
+  );
+  const editableCellFields = useMemo(
+    () =>
+      new Set<keyof MainRow>([
+        "nr_fisa",
+        "reper",
+        "client",
+        "buc",
+        "data_intrare",
+        "data_livrare",
+        "comanda",
+        "tratament",
+        "observatii",
+        "strung_colchester",
+        "strung_cnc",
+        "freze_mici",
+        "freze_mari",
+        "gaurire",
+        "rectificare",
+        "bwk",
+        "sip",
+        "norte",
+        "tos",
+        "bridgeport",
+        "eco",
+        "schaublin",
+        "hurco",
+        "matec",
+        "parpas",
+        "ajustare",
+        "filetare",
+        "marcare",
+        "curatare_filete",
+        "timp_per_buc",
+        "ore_totale",
+        "valoare_per_buc",
+        "valoare_totala",
+        "utilaj_folosit",
+        "soft_folosit",
+        "programator",
+        "locatie_dosar",
+        "status",
+        "control_status",
+        "magazie_status",
+        "created_by",
+        "updated_by",
+        "recalc_at",
+      ]),
+    [],
+  );
 
-  function applySearch() {
-    setAppliedSearchQuery(searchInput);
+  async function applySearch() {
+    const trimmed = searchInput.trim();
+    if (!trimmed) {
+      setAppliedSearchQuery("");
+      return;
+    }
+    const searchResult = await searchMainRows(trimmed, 150);
+    if (searchResult.ok && searchResult.rows.length > 0) {
+      setRows((prev) => {
+        const byId = new Map<number, MainRow>();
+        for (const row of [...prev, ...searchResult.rows]) {
+          byId.set(row.id, row);
+        }
+        return [...byId.values()];
+      });
+      setAppliedSearchQuery(trimmed);
+      setStatus(`Found ${searchResult.rows.length} rows for "${trimmed}".`);
+      return;
+    }
+    setAppliedSearchQuery(trimmed);
+    if (/^\d+$/.test(trimmed)) {
+      const rowId = Number(trimmed);
+      const result = await fetchMainRowById(rowId);
+      if (!result.ok || !result.row) {
+        setStatus(`No rows found for "${trimmed}".`);
+        return;
+      }
+      const foundRow = result.row;
+      setRows((prev) => {
+        const byId = new Map<number, MainRow>();
+        for (const row of [...prev, foundRow]) {
+          byId.set(row.id, row);
+        }
+        return [...byId.values()];
+      });
+      setSelectedRowId(rowId);
+      setAppliedSearchQuery(trimmed);
+      setStatus(`Jumped to row ID ${rowId}.`);
+      setTimeout(() => {
+        const rowEl = document.getElementById(`row-${rowId}`);
+        rowEl?.scrollIntoView({ block: "center", inline: "nearest" });
+      }, 0);
+      return;
+    }
+    setStatus(`No rows found for "${trimmed}".`);
+  }
+
+  function beginCellEdit(row: MainRow, field: keyof MainRow) {
+    if (!editableCellFields.has(field)) {
+      return;
+    }
+    setActiveCell({ rowId: row.id, field });
+    setActiveCellValue(row[field] === null || row[field] === undefined ? "" : String(row[field]));
+  }
+
+  async function commitCellEdit() {
+    if (!activeCell) {
+      return;
+    }
+    const { rowId, field } = activeCell;
+    let nextValue: unknown = activeCellValue;
+    try {
+      if (numericEditableFields.has(field)) {
+        nextValue = parseOptionalNumber(activeCellValue);
+        if (field === "buc" && (nextValue === null || Number.isNaN(nextValue))) {
+          setStatus("Buc must be numeric.");
+          return;
+        }
+      } else if (field === "data_intrare" || field === "data_livrare") {
+        nextValue = activeCellValue ? activeCellValue : null;
+      } else {
+        nextValue = activeCellValue === "" ? null : activeCellValue;
+      }
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Invalid cell value.");
+      return;
+    }
+
+    setIsSaving(true);
+    const result = await saveMainRowUpdate(rowId, { [field]: nextValue } as Partial<MainRow>);
+    setIsSaving(false);
+    if (!result.ok) {
+      setStatus(`Save failed: ${result.message}`);
+      return;
+    }
+    setRows((prev) =>
+      prev.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              [field]: nextValue as never,
+              updated_at: new Date().toISOString(),
+            }
+          : row,
+      ),
+    );
+    setActiveCell(null);
+    setActiveCellValue("");
+    setStatus(`Cell ${String(field)} saved.`);
+  }
+
+  function cancelCellEdit() {
+    setActiveCell(null);
+    setActiveCellValue("");
+  }
+
+  function onCellEditorKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      void commitCellEdit();
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      cancelCellEdit();
+    }
+  }
+
+  function renderGridCell(row: MainRow, field: keyof MainRow) {
+    const isEditing = activeCell?.rowId === row.id && activeCell.field === field;
+    if (isEditing) {
+      const inputType = field === "data_intrare" || field === "data_livrare" ? "date" : "text";
+      return (
+        <input
+          autoFocus
+          type={inputType}
+          className="cell-inline-editor"
+          value={activeCellValue}
+          onChange={(event) => setActiveCellValue(event.target.value)}
+          onBlur={() => void commitCellEdit()}
+          onKeyDown={onCellEditorKeyDown}
+          onClick={(event) => event.stopPropagation()}
+        />
+      );
+    }
+    return (
+      <span
+        className={editableCellFields.has(field) ? "editable-cell" : ""}
+      >
+        {formatCell(row[field])}
+      </span>
+    );
   }
 
   async function loadPage(pageToLoad: number, reset = false) {
@@ -366,102 +509,8 @@ function App() {
     }
   }, [rows, isLoadingMore, hasMoreRows]);
 
-  useEffect(() => {
-    const onMouseMove = (event: MouseEvent) => {
-      if (!propertiesResizeRef.current) {
-        return;
-      }
-      const minWidth = 320;
-      const maxWidth = 920;
-      const next = window.innerWidth - event.clientX;
-      setPropertiesWidth(Math.max(minWidth, Math.min(maxWidth, next)));
-    };
-    const onMouseUp = () => {
-      propertiesResizeRef.current = false;
-    };
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
-  }, []);
-
   function selectRow(row: MainRow) {
     setSelectedRowId(row.id);
-    setEditingDraft(rowToEditDraft(row));
-  }
-
-  async function saveSelectedRow() {
-    if (!selectedRow || !editingDraft) {
-      return;
-    }
-    let patch: Partial<MainRow>;
-    try {
-      const machineValues = Object.fromEntries(
-        MACHINE_FIELDS.map((field) => [field, parseOptionalNumber(editingDraft[field])]),
-      ) as Record<MachineField, number | null>;
-      patch = {
-        nr_fisa: editingDraft.nr_fisa.trim(),
-        reper: editingDraft.reper.trim(),
-        client: editingDraft.client.trim(),
-        buc: Number(editingDraft.buc),
-        data_intrare: editingDraft.data_intrare || null,
-        data_livrare: editingDraft.data_livrare || null,
-        comanda: editingDraft.comanda || null,
-        tratament: editingDraft.tratament || null,
-        observatii: editingDraft.observatii || null,
-        status: editingDraft.status || null,
-        control_status: editingDraft.control_status || null,
-        magazie_status: editingDraft.magazie_status || null,
-        timp_per_buc: parseOptionalNumber(editingDraft.timp_per_buc),
-        ore_totale: parseOptionalNumber(editingDraft.ore_totale),
-        valoare_per_buc: parseOptionalNumber(editingDraft.valoare_per_buc),
-        valoare_totala: parseOptionalNumber(editingDraft.valoare_totala),
-        utilaj_folosit: editingDraft.utilaj_folosit || null,
-        soft_folosit: editingDraft.soft_folosit || null,
-        programator: editingDraft.programator || null,
-        locatie_dosar: editingDraft.locatie_dosar || null,
-        created_by: editingDraft.created_by || null,
-        updated_by: editingDraft.updated_by || null,
-        recalc_at: editingDraft.recalc_at || null,
-        ...machineValues,
-      };
-      if (Number.isNaN(patch.buc)) {
-        setStatus("Buc must be numeric.");
-        return;
-      }
-      if (!patch.nr_fisa || !patch.reper || !patch.client) {
-        setStatus("Nr Fisa, Reper, Client are required.");
-        return;
-      }
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Invalid row values.");
-      return;
-    }
-
-    setIsSaving(true);
-    const result = await saveMainRowUpdate(selectedRow.id, patch);
-    setIsSaving(false);
-
-    if (!result.ok) {
-      setStatus(`Save failed: ${result.message}`);
-      return;
-    }
-
-    setRows((prev) =>
-      prev.map((row) =>
-        row.id === selectedRow.id
-          ? {
-              ...row,
-              ...patch,
-              updated_at: new Date().toISOString(),
-            }
-          : row,
-      ),
-    );
-    setStatus(`Row ${selectedRow.id} saved via ${result.mode}.`);
-    void loadRecalc();
   }
 
   function useRowAsTemplate(row: MainRow) {
@@ -591,7 +640,6 @@ function App() {
     }
     setRows((prev) => prev.filter((row) => row.id !== selectedRow.id));
     setSelectedRowId(null);
-    setEditingDraft(null);
     setStatus(`Row ${selectedRow.id} deleted via ${result.mode}.`);
   }
 
@@ -599,7 +647,7 @@ function App() {
     <div
       className="app-shell"
       style={{
-        gridTemplateColumns: `${isLeftNavCollapsed ? 52 : 220}px minmax(0, 1fr) 6px ${propertiesWidth}px`,
+        gridTemplateColumns: `${isLeftNavCollapsed ? 52 : 220}px minmax(0, 1fr)`,
       }}
     >
       <aside className={`left-nav ${isLeftNavCollapsed ? "collapsed" : ""}`}>
@@ -639,13 +687,16 @@ function App() {
               onChange={(event) => setSearchInput(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
-                  applySearch();
+                  void applySearch();
                 }
               }}
             />
-            <button onClick={applySearch}>Search</button>
+            <button onClick={() => void applySearch()}>Search</button>
             <button onClick={refreshRows}>Refresh</button>
             <button onClick={() => void loadRecalc()}>Recalc Status</button>
+            <button onClick={() => void deleteSelectedRow()} disabled={isSaving || !selectedRow}>
+              Delete Selected
+            </button>
             <span className="mode-pill">{runtimeConfig.mode}</span>
           </div>
         </header>
@@ -707,55 +758,56 @@ function App() {
               {filteredRows.map((row) => (
                 <tr
                   key={row.id}
+                  id={`row-${row.id}`}
                   onClick={() => selectRow(row)}
                   className={selectedRowId === row.id ? "selected-row" : ""}
                 >
                   <td>{row.id}</td>
-                  <td>{row.nr_fisa}</td>
-                  <td>{row.reper}</td>
-                  <td>{row.client}</td>
-                  <td>{formatCell(row.buc)}</td>
-                  <td>{formatCell(row.data_intrare)}</td>
-                  <td>{formatCell(row.data_livrare)}</td>
-                  <td>{formatCell(row.comanda)}</td>
-                  <td>{formatCell(row.tratament)}</td>
-                  <td>{formatCell(row.observatii)}</td>
-                  <td>{formatCell(row.strung_colchester)}</td>
-                  <td>{formatCell(row.strung_cnc)}</td>
-                  <td>{formatCell(row.freze_mici)}</td>
-                  <td>{formatCell(row.freze_mari)}</td>
-                  <td>{formatCell(row.gaurire)}</td>
-                  <td>{formatCell(row.rectificare)}</td>
-                  <td>{formatCell(row.bwk)}</td>
-                  <td>{formatCell(row.sip)}</td>
-                  <td>{formatCell(row.norte)}</td>
-                  <td>{formatCell(row.tos)}</td>
-                  <td>{formatCell(row.bridgeport)}</td>
-                  <td>{formatCell(row.eco)}</td>
-                  <td>{formatCell(row.schaublin)}</td>
-                  <td>{formatCell(row.hurco)}</td>
-                  <td>{formatCell(row.matec)}</td>
-                  <td>{formatCell(row.parpas)}</td>
-                  <td>{formatCell(row.ajustare)}</td>
-                  <td>{formatCell(row.filetare)}</td>
-                  <td>{formatCell(row.marcare)}</td>
-                  <td>{formatCell(row.curatare_filete)}</td>
-                  <td>{formatCell(row.timp_per_buc)}</td>
-                  <td>{formatCell(row.ore_totale)}</td>
-                  <td>{formatCell(row.valoare_per_buc)}</td>
-                  <td>{formatCell(row.valoare_totala)}</td>
-                  <td>{formatCell(row.utilaj_folosit)}</td>
-                  <td>{formatCell(row.soft_folosit)}</td>
-                  <td>{formatCell(row.programator)}</td>
-                  <td>{formatCell(row.locatie_dosar)}</td>
-                  <td>{formatCell(row.status)}</td>
-                  <td>{formatCell(row.control_status)}</td>
-                  <td>{formatCell(row.magazie_status)}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "nr_fisa")}>{renderGridCell(row, "nr_fisa")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "reper")}>{renderGridCell(row, "reper")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "client")}>{renderGridCell(row, "client")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "buc")}>{renderGridCell(row, "buc")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "data_intrare")}>{renderGridCell(row, "data_intrare")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "data_livrare")}>{renderGridCell(row, "data_livrare")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "comanda")}>{renderGridCell(row, "comanda")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "tratament")}>{renderGridCell(row, "tratament")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "observatii")}>{renderGridCell(row, "observatii")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "strung_colchester")}>{renderGridCell(row, "strung_colchester")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "strung_cnc")}>{renderGridCell(row, "strung_cnc")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "freze_mici")}>{renderGridCell(row, "freze_mici")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "freze_mari")}>{renderGridCell(row, "freze_mari")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "gaurire")}>{renderGridCell(row, "gaurire")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "rectificare")}>{renderGridCell(row, "rectificare")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "bwk")}>{renderGridCell(row, "bwk")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "sip")}>{renderGridCell(row, "sip")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "norte")}>{renderGridCell(row, "norte")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "tos")}>{renderGridCell(row, "tos")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "bridgeport")}>{renderGridCell(row, "bridgeport")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "eco")}>{renderGridCell(row, "eco")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "schaublin")}>{renderGridCell(row, "schaublin")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "hurco")}>{renderGridCell(row, "hurco")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "matec")}>{renderGridCell(row, "matec")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "parpas")}>{renderGridCell(row, "parpas")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "ajustare")}>{renderGridCell(row, "ajustare")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "filetare")}>{renderGridCell(row, "filetare")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "marcare")}>{renderGridCell(row, "marcare")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "curatare_filete")}>{renderGridCell(row, "curatare_filete")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "timp_per_buc")}>{renderGridCell(row, "timp_per_buc")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "ore_totale")}>{renderGridCell(row, "ore_totale")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "valoare_per_buc")}>{renderGridCell(row, "valoare_per_buc")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "valoare_totala")}>{renderGridCell(row, "valoare_totala")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "utilaj_folosit")}>{renderGridCell(row, "utilaj_folosit")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "soft_folosit")}>{renderGridCell(row, "soft_folosit")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "programator")}>{renderGridCell(row, "programator")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "locatie_dosar")}>{renderGridCell(row, "locatie_dosar")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "status")}>{renderGridCell(row, "status")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "control_status")}>{renderGridCell(row, "control_status")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "magazie_status")}>{renderGridCell(row, "magazie_status")}</td>
                   <td>{formatCell(row.created_at)}</td>
-                  <td>{formatCell(row.created_by)}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "created_by")}>{renderGridCell(row, "created_by")}</td>
                   <td>{formatCell(row.updated_at)}</td>
-                  <td>{formatCell(row.updated_by)}</td>
-                  <td>{formatCell(row.recalc_at)}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "updated_by")}>{renderGridCell(row, "updated_by")}</td>
+                  <td onDoubleClick={() => beginCellEdit(row, "recalc_at")}>{renderGridCell(row, "recalc_at")}</td>
                   <td>
                     <button
                       className="small-btn"
@@ -904,249 +956,11 @@ function App() {
             )}
           </div>
         </section>
-      </main>
-
-      <div
-        className="panel-resizer"
-        onMouseDown={() => {
-          propertiesResizeRef.current = true;
-        }}
-      />
-      <aside className="properties">
-        <h2>Row Properties</h2>
-        {selectedRow && editingDraft ? (
-          <>
-            <p>
-              <strong>ID:</strong> {selectedRow.id}
-            </p>
-            <div className="properties-grid">
-              <label>Nr Fisa</label>
-              <input
-                value={editingDraft.nr_fisa}
-                onChange={(event) =>
-                  setEditingDraft((prev) => (prev ? { ...prev, nr_fisa: event.target.value } : prev))
-                }
-              />
-              <label>Reper</label>
-              <input
-                value={editingDraft.reper}
-                onChange={(event) =>
-                  setEditingDraft((prev) => (prev ? { ...prev, reper: event.target.value } : prev))
-                }
-              />
-              <label>Client</label>
-              <input
-                value={editingDraft.client}
-                onChange={(event) =>
-                  setEditingDraft((prev) => (prev ? { ...prev, client: event.target.value } : prev))
-                }
-              />
-              <label>Buc</label>
-              <input
-                value={editingDraft.buc}
-                onChange={(event) =>
-                  setEditingDraft((prev) => (prev ? { ...prev, buc: event.target.value } : prev))
-                }
-              />
-              <label>Data Intrare</label>
-              <input
-                type="date"
-                value={editingDraft.data_intrare}
-                onChange={(event) =>
-                  setEditingDraft((prev) =>
-                    prev ? { ...prev, data_intrare: event.target.value } : prev,
-                  )
-                }
-              />
-              <label>Data Livrare</label>
-              <input
-                type="date"
-                value={editingDraft.data_livrare}
-                onChange={(event) =>
-                  setEditingDraft((prev) =>
-                    prev ? { ...prev, data_livrare: event.target.value } : prev,
-                  )
-                }
-              />
-              <label>Comanda</label>
-              <input
-                value={editingDraft.comanda}
-                onChange={(event) =>
-                  setEditingDraft((prev) => (prev ? { ...prev, comanda: event.target.value } : prev))
-                }
-              />
-              <label>Tratament</label>
-              <input
-                value={editingDraft.tratament}
-                onChange={(event) =>
-                  setEditingDraft((prev) =>
-                    prev ? { ...prev, tratament: event.target.value } : prev,
-                  )
-                }
-              />
-              <label>Observatii</label>
-              <input
-                value={editingDraft.observatii}
-                onChange={(event) =>
-                  setEditingDraft((prev) =>
-                    prev ? { ...prev, observatii: event.target.value } : prev,
-                  )
-                }
-              />
-              <label>Status</label>
-              <input
-                value={editingDraft.status}
-                onChange={(event) =>
-                  setEditingDraft((prev) => (prev ? { ...prev, status: event.target.value } : prev))
-                }
-              />
-              <label>Control Status</label>
-              <input
-                value={editingDraft.control_status}
-                onChange={(event) =>
-                  setEditingDraft((prev) =>
-                    prev ? { ...prev, control_status: event.target.value } : prev,
-                  )
-                }
-              />
-              <label>Magazie Status</label>
-              <input
-                value={editingDraft.magazie_status}
-                onChange={(event) =>
-                  setEditingDraft((prev) =>
-                    prev ? { ...prev, magazie_status: event.target.value } : prev,
-                  )
-                }
-              />
-              {MACHINE_FIELDS.map((field) => (
-                <div key={field} className="properties-field">
-                  <label>{field}</label>
-                  <input
-                    value={editingDraft[field]}
-                    onChange={(event) =>
-                      setEditingDraft((prev) =>
-                        prev ? { ...prev, [field]: event.target.value } : prev,
-                      )
-                    }
-                  />
-                </div>
-              ))}
-              <label>Timp/Buc</label>
-              <input
-                value={editingDraft.timp_per_buc}
-                onChange={(event) =>
-                  setEditingDraft((prev) =>
-                    prev ? { ...prev, timp_per_buc: event.target.value } : prev,
-                  )
-                }
-              />
-              <label>Ore Totale</label>
-              <input
-                value={editingDraft.ore_totale}
-                onChange={(event) =>
-                  setEditingDraft((prev) =>
-                    prev ? { ...prev, ore_totale: event.target.value } : prev,
-                  )
-                }
-              />
-              <label>Valoare/Buc</label>
-              <input
-                value={editingDraft.valoare_per_buc}
-                onChange={(event) =>
-                  setEditingDraft((prev) =>
-                    prev ? { ...prev, valoare_per_buc: event.target.value } : prev,
-                  )
-                }
-              />
-              <label>Valoare Totala</label>
-              <input
-                value={editingDraft.valoare_totala}
-                onChange={(event) =>
-                  setEditingDraft((prev) =>
-                    prev ? { ...prev, valoare_totala: event.target.value } : prev,
-                  )
-                }
-              />
-              <label>Utilaj Folosit</label>
-              <input
-                value={editingDraft.utilaj_folosit}
-                onChange={(event) =>
-                  setEditingDraft((prev) =>
-                    prev ? { ...prev, utilaj_folosit: event.target.value } : prev,
-                  )
-                }
-              />
-              <label>Soft Folosit</label>
-              <input
-                value={editingDraft.soft_folosit}
-                onChange={(event) =>
-                  setEditingDraft((prev) =>
-                    prev ? { ...prev, soft_folosit: event.target.value } : prev,
-                  )
-                }
-              />
-              <label>Programator</label>
-              <input
-                value={editingDraft.programator}
-                onChange={(event) =>
-                  setEditingDraft((prev) =>
-                    prev ? { ...prev, programator: event.target.value } : prev,
-                  )
-                }
-              />
-              <label>Locatie Dosar</label>
-              <input
-                value={editingDraft.locatie_dosar}
-                onChange={(event) =>
-                  setEditingDraft((prev) =>
-                    prev ? { ...prev, locatie_dosar: event.target.value } : prev,
-                  )
-                }
-              />
-              <label>Created By</label>
-              <input
-                value={editingDraft.created_by}
-                onChange={(event) =>
-                  setEditingDraft((prev) =>
-                    prev ? { ...prev, created_by: event.target.value } : prev,
-                  )
-                }
-              />
-              <label>Updated By</label>
-              <input
-                value={editingDraft.updated_by}
-                onChange={(event) =>
-                  setEditingDraft((prev) =>
-                    prev ? { ...prev, updated_by: event.target.value } : prev,
-                  )
-                }
-              />
-              <label>Recalc At (ISO)</label>
-              <input
-                value={editingDraft.recalc_at}
-                onChange={(event) =>
-                  setEditingDraft((prev) =>
-                    prev ? { ...prev, recalc_at: event.target.value } : prev,
-                  )
-                }
-              />
-            </div>
-            <button onClick={() => void saveSelectedRow()} disabled={isSaving}>
-              {isSaving ? "Saving..." : "Save"}
-            </button>
-            <button className="danger-btn" onClick={() => void deleteSelectedRow()} disabled={isSaving}>
-              Delete Row
-            </button>
-          </>
-        ) : (
-          <p>Select row to edit.</p>
-        )}
-
         <div className="recalc-card">
           <h3>Recalc Status</h3>
           <p>{recalcStatus}</p>
         </div>
-      </aside>
+      </main>
     </div>
   );
 }
