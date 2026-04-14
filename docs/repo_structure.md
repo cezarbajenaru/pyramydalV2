@@ -1,5 +1,6 @@
 excel-platform/
 ├── README.md
+├── QUICK_START.md
 ├── docs/
 │   ├── architecture.md
 │   ├── data-model.md
@@ -12,41 +13,35 @@ excel-platform/
 │   │   ├── modules/
 │   │   │   ├── rds/
 │   │   │   ├── s3/
-│   │   │   ├── ec2_appsmith/
 │   │   │   ├── iam/
 │   │   │   └── lambda/
 │   │   ├── environments/
-│   │   │   ├── dev/
 │   │   │   └── prod/
 │   │   └── main.tf
 │   │
 │   └── scripts/
 │       └── bootstrap.sh
 │
-├── appsmith/
-│   ├── docker-compose.yml
-│   ├── env.example
-│   └── volumes.md
+├── ui/
+│   ├── src/
+│   ├── public/
+│   ├── package.json
+│   └── vite.config.ts
 │
 ├── db/
 │   ├── schema/
 │   │   ├── 001_init.sql
-│   │   ├── 002_reference_tables.sql
-│   │   └── 003_indexes.sql
-│   │
+│   │   ├── 002_staging_and_audit.sql
+│   │   └── 003_recalc_procedures.sql
 │   └── migrations/
 │
 ├── lambda/
 │   ├── import_reference/
-│   │   ├── handler.py
-│   │   └── requirements.txt
 │   └── recalc/
-│       ├── handler.py
-│       └── requirements.txt
 │
 ├── .github/
 │   └── workflows/
 │       ├── terraform.yml
-│       └── deploy-appsmith.yml
+│       └── deploy-lambda.yml
 │
 └── .gitignore

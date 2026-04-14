@@ -39,12 +39,12 @@ variable "instance_class" {
 
 variable "allocated_storage" {
   type    = number
-  default = 50  # GB
+  default = 50 # GB
 }
 
 variable "max_allocated_storage" {
   type    = number
-  default = 200  # Auto-scaling limit
+  default = 200 # Auto-scaling limit
 }
 
 variable "multi_az" {
@@ -66,7 +66,7 @@ variable "tags" {
 resource "aws_db_subnet_group" "main" {
   name       = "${var.name_prefix}-db-subnet-group"
   subnet_ids = var.subnet_ids
-  
+
   tags = merge(var.tags, {
     Name = "${var.name_prefix}-db-subnet-group"
   })
@@ -77,7 +77,7 @@ resource "aws_security_group" "rds" {
   name        = "${var.name_prefix}-rds-sg"
   description = "Security group for RDS PostgreSQL"
   vpc_id      = var.vpc_id
-  
+
   ingress {
     description     = "PostgreSQL from allowed security groups"
     from_port       = 5432
@@ -85,7 +85,7 @@ resource "aws_security_group" "rds" {
     protocol        = "tcp"
     security_groups = var.allowed_security_groups
   }
-  
+
   egress {
     description = "Allow all outbound"
     from_port   = 0
@@ -93,7 +93,7 @@ resource "aws_security_group" "rds" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  
+
   tags = merge(var.tags, {
     Name = "${var.name_prefix}-rds-sg"
   })
@@ -103,64 +103,64 @@ resource "aws_security_group" "rds" {
 resource "aws_db_parameter_group" "main" {
   family = "postgres15"
   name   = "${var.name_prefix}-pg15"
-  
+
   # Performance tuning for 75k row dataset
   parameter {
     name  = "shared_preload_libraries"
     value = "pg_stat_statements"
   }
-  
+
   parameter {
     name  = "random_page_cost"
-    value = "1.1"  # Optimized for SSD
+    value = "1.1" # Optimized for SSD
   }
-  
+
   parameter {
     name  = "effective_cache_size"
-    value = "1GB"  # Adjust based on instance size
+    value = "1GB" # Adjust based on instance size
   }
-  
+
   parameter {
     name  = "work_mem"
-    value = "16384"  # 16MB for complex joins
+    value = "16384" # 16MB for complex joins
   }
-  
+
   tags = var.tags
 }
 
 # RDS Instance
 resource "aws_db_instance" "main" {
   identifier = "${var.name_prefix}-postgres"
-  
-  engine               = "postgres"
-  engine_version       = "15.4"
-  instance_class       = var.instance_class
-  allocated_storage    = var.allocated_storage
+
+  engine                = "postgres"
+  engine_version        = "15.4"
+  instance_class        = var.instance_class
+  allocated_storage     = var.allocated_storage
   max_allocated_storage = var.max_allocated_storage
-  storage_type         = "gp3"
-  storage_encrypted    = true
-  
+  storage_type          = "gp3"
+  storage_encrypted     = true
+
   db_name  = var.database_name
   username = var.master_username
   password = var.master_password
   port     = 5432
-  
+
   multi_az               = var.multi_az
   db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.rds.id]
   parameter_group_name   = aws_db_parameter_group.main.name
-  
-  backup_retention_period   = var.backup_retention_period
-  backup_window             = "03:00-04:00"  # UTC
-  maintenance_window        = "sun:04:00-sun:05:00"
-  
+
+  backup_retention_period = var.backup_retention_period
+  backup_window           = "03:00-04:00" # UTC
+  maintenance_window      = "sun:04:00-sun:05:00"
+
   enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
-  
+
   skip_final_snapshot       = false
   final_snapshot_identifier = "${var.name_prefix}-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
-  
-  deletion_protection = true  # Safety: prevent accidental deletion
-  
+
+  deletion_protection = true # Safety: prevent accidental deletion
+
   tags = merge(var.tags, {
     Name = "${var.name_prefix}-postgres"
   })

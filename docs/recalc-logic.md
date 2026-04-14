@@ -390,27 +390,24 @@ AND (pl.valabil_pana_la IS NULL OR pl.valabil_pana_la >= CURRENT_DATE)
 
 ## Manual Recalculation
 
-### Trigger Manual Run (Appsmith Button)
+### Trigger Manual Run (In-House UI Button)
 
 ```javascript
-// Appsmith button onClick
-export default {
-    async runRecalc() {
-        try {
-            const result = await InvokeLambda.run({
-                functionName: 'pyramydal-prod-recalc',
-                payload: {
-                    triggered_by: 'manual',
-                    triggered_by_user: appsmith.user.email
-                }
-            });
-            
-            showAlert(`Recalculation complete: ${result.rows_updated} rows updated`, 'success');
-            GetRecalcRuns.run();
-        } catch (error) {
-            showAlert('Recalculation failed', 'error');
-        }
-    }
+async function runRecalc(currentUserEmail) {
+  const response = await fetch("/api/recalc/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      triggered_by: "manual",
+      triggered_by_user: currentUserEmail
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error("Recalculation failed");
+  }
+
+  return response.json();
 }
 ```
 

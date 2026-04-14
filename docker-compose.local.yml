@@ -1,0 +1,44 @@
+services:
+  localstack:
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3,lambda,events,sts,iam,cloudwatch,logs
+      - DEBUG=1
+      - AWS_DEFAULT_REGION=eu-central-1
+    volumes:
+      - ./tmp/localstack:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  postgres:
+    image: postgres:15
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=production
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+    volumes:
+      - ./tmp/postgres:/var/lib/postgresql/data
+
+  backend:
+    image: python:3.11-slim
+    working_dir: /app
+    command: bash -lc "pip install -r backend/requirements.txt && uvicorn backend.app.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=production
+      - DB_USER=admin
+      - DB_PASSWORD=admin
+      - AWS_REGION=eu-central-1
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - RECALC_LAMBDA_NAME=pyramydal-prod-recalc
+    volumes:
+      - ./:/app
+    depends_on:
+      - postgres
+      - localstack

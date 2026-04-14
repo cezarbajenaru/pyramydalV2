@@ -9,7 +9,7 @@ variable "aws_region" {
 variable "environment" {
   description = "Environment name (dev, prod)"
   type        = string
-  
+
   validation {
     condition     = contains(["dev", "prod"], var.environment)
     error_message = "Environment must be dev or prod"
@@ -38,40 +38,11 @@ variable "db_password" {
 variable "db_instance_class" {
   description = "RDS instance class"
   type        = string
-  default     = "db.t4g.small"  # 2 vCPU, 2 GB RAM - good for 75k rows
-}
-
-variable "ec2_instance_type" {
-  description = "EC2 instance type for Appsmith"
-  type        = string
-  default     = "t3.medium"  # 2 vCPU, 4 GB RAM
-}
-
-variable "ec2_key_name" {
-  description = "EC2 SSH key pair name"
-  type        = string
-}
-
-variable "allowed_ips" {
-  description = "List of IP addresses allowed to access Appsmith (CIDR notation)"
-  type        = list(string)
-  default     = []  # Must be provided for security
-}
-
-variable "appsmith_encryption_password" {
-  description = "Appsmith encryption password (persistent!)"
-  type        = string
-  sensitive   = true
-}
-
-variable "appsmith_encryption_salt" {
-  description = "Appsmith encryption salt (persistent!)"
-  type        = string
-  sensitive   = true
+  default     = "db.t4g.small" # 2 vCPU, 2 GB RAM - good for 75k rows
 }
 
 variable "domain_name" {
-  description = "Domain name for Appsmith (optional, for ACM certificate)"
+  description = "Optional domain name for UI/API endpoints"
   type        = string
   default     = ""
 }
@@ -79,12 +50,12 @@ variable "domain_name" {
 variable "enable_multi_az" {
   description = "Enable RDS Multi-AZ deployment"
   type        = bool
-  default     = false  # Set true for production
+  default     = false # Set true for production
 }
 
 variable "backup_retention_days" {
   description = "RDS backup retention period (days)"
   type        = number
-  default     = 14  # 2 weeks for production
+  default     = 14 # 2 weeks for production
 }
 

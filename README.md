@@ -1,70 +1,44 @@
 # PyramydalV2 - Excel Replacement Platform
 
-Internal AWS-based platform for managing production data (75k+ rows) with automated calculations and reference data management.
+Internal AWS platform for production data management (75k+ rows), automated recalculation, and project-owned UI.
 
 ## Problem Statement
-- Current Excel file (~75,000 rows) takes 1.5 hours to load
-- Manual VLOOKUP/INDEX-MATCH formulas across multiple reference files
-- No audit trail or concurrent editing capability
-- No automation for derived calculations
+- Current Excel workflow is slow at scale
+- Manual cross-file formulas are error-prone
+- No centralized audit trail or automation controls
 
-## Solution Architecture
-- **Database**: RDS PostgreSQL (single source of truth)
-- **Storage**: S3 (XLSX uploads with versioning)
-- **Compute**: Lambda (import + scheduled recalc every 15 min)
-- **UI**: Appsmith on EC2 (Excel-like editable grid)
-- **CI/CD**: GitHub Actions + Terraform
+## Current Architecture
+- **Database**: RDS PostgreSQL (system of record)
+- **Storage**: S3 (uploads/exports with versioning)
+- **Compute**: Lambda (imports + scheduled recalculation)
+- **Infrastructure**: Terraform
+- **CI/CD**: GitHub Actions
+- **Backend API**: single FastAPI service for prod + localstack tests
+- **UI**: In-house web app (React/Vite)
 
 ## Repository Structure
-```
+```text
 pyramydalV2/
 ├── infra/              # Terraform infrastructure
 ├── lambda/             # Import and recalculation functions
 ├── db/                 # Database schema and migrations
-├── appsmith/           # UI deployment configs
-├── docs/               # Architecture and runbooks
+├── backend/            # Production backend API (shared with localstack tests)
+├── ui/                 # In-house web UI (Appsmith-like UX)
+├── docs/               # Architecture and operations
 ├── .github/workflows/  # CI/CD pipelines
 └── xls/                # Sample/reference XLSX files (not committed)
 ```
 
 ## Quick Start
-
-### Prerequisites
-- AWS account with appropriate permissions
-- Terraform >= 1.5
-- Docker & Docker Compose
-- Python 3.11+
-
-### Initial Setup
-```bash
-# 1. Configure AWS credentials
-aws configure
-
-# 2. Initialize Terraform
-cd infra/terraform/environments/prod
-terraform init
-
-# 3. Deploy infrastructure
-terraform plan
-terraform apply
-
-# 4. Initialize database
-psql -h <rds-endpoint> -U admin -d production -f ../../db/schema/001_init.sql
-
-# 5. Deploy Appsmith
-ssh ec2-user@<appsmith-ec2>
-cd /opt/appsmith
-docker-compose up -d
-```
+See `QUICK_START.md` for full setup.
+Backend runs as single implementation path for both production and localstack.
 
 ## Key Features
-- Server-side pagination (handles 75k+ rows efficiently)
-- Real-time edit tracking (updated_by, updated_at)
-- Automated recalculation every 15 minutes
-- XLSX import with validation and staging
-- Full audit trail for imports and recalculations
-- Role-based access control
-- Export to XLSX/CSV
+- Scalable tabular data operations for 75k+ rows
+- Scheduled derived-column recalculation every 15 minutes
+- XLSX import pipeline with staging and validation
+- Audit trail (`imports_audit`, `recalc_runs`, `user_edits`)
+- Localstack-ready interfaces for future local testing
 
 ## Documentation
 - [Architecture Overview](docs/architecture.md)
@@ -73,7 +47,4 @@ docker-compose up -d
 - [Recalculation Logic](docs/recalc-logic.md)
 - [Operations Runbook](docs/runbook.md)
 - [MVP Milestone Plan](docs/mvp-plan.md)
-
-## Support
-For issues or questions, contact the platform engineering team.
 

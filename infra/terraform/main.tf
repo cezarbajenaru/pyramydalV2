@@ -3,7 +3,7 @@
 
 terraform {
   required_version = ">= 1.5.0"
-  
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -14,7 +14,7 @@ terraform {
       version = "~> 3.5"
     }
   }
-  
+
   backend "s3" {
     # Configure via backend-config during init:
     # terraform init -backend-config="bucket=pyramydal-terraform-state" \
@@ -25,7 +25,7 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
-  
+
   default_tags {
     tags = {
       Project     = "PyramydalV2"
@@ -45,7 +45,7 @@ data "aws_caller_identity" "current" {}
 # Local variables
 locals {
   name_prefix = "pyramydal-${var.environment}"
-  
+
   common_tags = {
     Project     = "PyramydalV2"
     Environment = var.environment

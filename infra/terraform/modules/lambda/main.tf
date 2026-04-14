@@ -52,7 +52,7 @@ resource "aws_security_group" "lambda" {
   name        = "${var.name_prefix}-lambda-sg"
   description = "Security group for Lambda functions"
   vpc_id      = var.vpc_id
-  
+
   egress {
     description = "Allow all outbound"
     from_port   = 0
@@ -60,7 +60,7 @@ resource "aws_security_group" "lambda" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  
+
   tags = merge(var.tags, {
     Name = "${var.name_prefix}-lambda-sg"
   })
@@ -79,7 +79,7 @@ resource "aws_security_group_rule" "lambda_to_rds" {
 # IAM Role for Lambda
 resource "aws_iam_role" "lambda" {
   name = "${var.name_prefix}-lambda-role"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -90,7 +90,7 @@ resource "aws_iam_role" "lambda" {
       }
     }]
   })
-  
+
   tags = var.tags
 }
 
@@ -110,7 +110,7 @@ resource "aws_iam_role_policy_attachment" "lambda_vpc" {
 resource "aws_iam_role_policy" "lambda_s3" {
   name = "${var.name_prefix}-lambda-s3-policy"
   role = aws_iam_role.lambda.id
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -134,34 +134,34 @@ resource "aws_iam_role_policy" "lambda_s3" {
 resource "aws_cloudwatch_log_group" "import_lambda" {
   name              = "/aws/lambda/${var.name_prefix}-import"
   retention_in_days = 30
-  
+
   tags = var.tags
 }
 
 resource "aws_cloudwatch_log_group" "recalc_lambda" {
   name              = "/aws/lambda/${var.name_prefix}-recalc"
   retention_in_days = 30
-  
+
   tags = var.tags
 }
 
 # Lambda Function: Import Reference Data
 resource "aws_lambda_function" "import_reference" {
-  filename         = "${path.module}/../../../lambda/import_reference/package.zip"
-  function_name    = "${var.name_prefix}-import"
-  role             = aws_iam_role.lambda.arn
-  handler          = "handler.lambda_handler"
-  runtime          = "python3.11"
-  timeout          = 300  # 5 minutes (XLSX parsing can be slow)
-  memory_size      = 512
-  
+  filename      = "${path.module}/../../../lambda/import_reference/package.zip"
+  function_name = "${var.name_prefix}-import"
+  role          = aws_iam_role.lambda.arn
+  handler       = "handler.lambda_handler"
+  runtime       = "python3.11"
+  timeout       = 300 # 5 minutes (XLSX parsing can be slow)
+  memory_size   = 512
+
   source_code_hash = fileexists("${path.module}/../../../lambda/import_reference/package.zip") ? filebase64sha256("${path.module}/../../../lambda/import_reference/package.zip") : null
-  
+
   vpc_config {
     subnet_ids         = var.subnet_ids
     security_group_ids = [aws_security_group.lambda.id]
   }
-  
+
   environment {
     variables = {
       DB_HOST     = var.db_host
@@ -171,11 +171,11 @@ resource "aws_lambda_function" "import_reference" {
       S3_BUCKET   = var.s3_bucket_name
     }
   }
-  
+
   tags = merge(var.tags, {
     Name = "${var.name_prefix}-import"
   })
-  
+
   depends_on = [
     aws_cloudwatch_log_group.import_lambda
   ]
@@ -183,21 +183,21 @@ resource "aws_lambda_function" "import_reference" {
 
 # Lambda Function: Recalculation
 resource "aws_lambda_function" "recalc" {
-  filename         = "${path.module}/../../../lambda/recalc/package.zip"
-  function_name    = "${var.name_prefix}-recalc"
-  role             = aws_iam_role.lambda.arn
-  handler          = "handler.lambda_handler"
-  runtime          = "python3.11"
-  timeout          = 180  # 3 minutes
-  memory_size      = 256
-  
+  filename      = "${path.module}/../../../lambda/recalc/package.zip"
+  function_name = "${var.name_prefix}-recalc"
+  role          = aws_iam_role.lambda.arn
+  handler       = "handler.lambda_handler"
+  runtime       = "python3.11"
+  timeout       = 180 # 3 minutes
+  memory_size   = 256
+
   source_code_hash = fileexists("${path.module}/../../../lambda/recalc/package.zip") ? filebase64sha256("${path.module}/../../../lambda/recalc/package.zip") : null
-  
+
   vpc_config {
     subnet_ids         = var.subnet_ids
     security_group_ids = [aws_security_group.lambda.id]
   }
-  
+
   environment {
     variables = {
       DB_HOST     = var.db_host
@@ -206,11 +206,11 @@ resource "aws_lambda_function" "recalc" {
       DB_PASSWORD = var.db_password
     }
   }
-  
+
   tags = merge(var.tags, {
     Name = "${var.name_prefix}-recalc"
   })
-  
+
   depends_on = [
     aws_cloudwatch_log_group.recalc_lambda
   ]
@@ -221,7 +221,7 @@ resource "aws_cloudwatch_event_rule" "recalc_schedule" {
   name                = "${var.name_prefix}-recalc-schedule"
   description         = "Trigger recalculation every 15 minutes"
   schedule_expression = "rate(15 minutes)"
-  
+
   tags = var.tags
 }
 
@@ -229,7 +229,7 @@ resource "aws_cloudwatch_event_target" "recalc_lambda" {
   rule      = aws_cloudwatch_event_rule.recalc_schedule.name
   target_id = "RecalcLambda"
   arn       = aws_lambda_function.recalc.arn
-  
+
   input = jsonencode({
     triggered_by = "scheduled"
   })
@@ -256,11 +256,11 @@ resource "aws_cloudwatch_metric_alarm" "import_errors" {
   threshold           = 0
   alarm_description   = "Alert when import Lambda has errors"
   treat_missing_data  = "notBreaching"
-  
+
   dimensions = {
     FunctionName = aws_lambda_function.import_reference.function_name
   }
-  
+
   tags = var.tags
 }
 
@@ -275,11 +275,11 @@ resource "aws_cloudwatch_metric_alarm" "recalc_errors" {
   threshold           = 1
   alarm_description   = "Alert when recalc Lambda has errors"
   treat_missing_data  = "notBreaching"
-  
+
   dimensions = {
     FunctionName = aws_lambda_function.recalc.function_name
   }
-  
+
   tags = var.tags
 }
 

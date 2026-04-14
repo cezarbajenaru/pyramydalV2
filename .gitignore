@@ -42,14 +42,18 @@ xls/*.xlsx
 xls/*.xls
 !xls/README.md
 
-# Appsmith volumes (managed by Docker)
-appsmith/stacks/
-
 # Lambda deployment packages
 lambda/**/package.zip
 lambda/**/node_modules/
 
+# UI build artifacts
+ui/node_modules/
+ui/dist/
+
 # Logs
 *.log
 logs/
+
+# Local runtime data (docker volumes)
+tmp/
 
