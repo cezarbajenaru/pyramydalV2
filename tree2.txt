@@ -1,0 +1,219 @@
+.
+├── backend
+│   ├── app
+│   │   ├── config.py
+│   │   ├── db.py
+│   │   ├── main.py
+│   │   └── __pycache__
+│   ├── README.md
+│   └── requirements.txt
+├── data
+│   └── normare utilaje 2024.xlsx
+├── db
+│   ├── schema
+│   │   ├── 001_init.sql
+│   │   ├── 002_staging_and_audit.sql
+│   │   └── 003_recalc_procedures.sql
+│   └── seed
+│       └── 001_localstack_smoke_seed.sql
+├── docker-compose.local.yml
+├── docs
+│   ├── architecture.md
+│   ├── data-model.md
+│   ├── full-columns-test-matrix.md
+│   ├── import-flow.md
+│   ├── login-auth-plan.md
+│   ├── mvp-plan.md
+│   ├── recalc-logic.md
+│   ├── repo_structure.md
+│   ├── runbook.md
+│   ├── steps_to_create.md
+│   └── vacation-handoff-prompt.md
+├── IMPLEMENTATION_SUMMARY.md
+├── infra
+│   └── terraform
+│       ├── environments
+│       ├── main.tf
+│       ├── modules
+│       └── variables.tf
+├── lambda
+│   ├── import_reference
+│   │   ├── handler.py
+│   │   └── requirements.txt
+│   └── recalc
+│       ├── handler.py
+│       └── requirements.txt
+├── QUICK_START.md
+├── README.md
+├── scripts
+│   ├── bootstrap-test-app.sh
+│   ├── build-lambda-packages.sh
+│   ├── initial_load.py
+│   ├── localstack_api_smoke_test.py
+│   ├── __pycache__
+│   │   └── initial_load.cpython-312.pyc
+│   └── test-localstack-integration.sh
+├── tmp
+│   ├── localstack
+│   │   ├── cache
+│   │   ├── lib
+│   │   ├── logs
+│   │   └── tmp
+│   └── postgres  [error opening dir]
+├── tree2.txt
+├── tree.txt
+├── ui
+│   ├── dist
+│   │   ├── assets
+│   │   ├── favicon.svg
+│   │   ├── icons.svg
+│   │   └── index.html
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── node_modules
+│   │   ├── acorn
+│   │   ├── acorn-jsx
+│   │   ├── ajv
+│   │   ├── ansi-styles
+│   │   ├── argparse
+│   │   ├── @babel
+│   │   ├── balanced-match
+│   │   ├── baseline-browser-mapping
+│   │   ├── brace-expansion
+│   │   ├── browserslist
+│   │   ├── callsites
+│   │   ├── caniuse-lite
+│   │   ├── chalk
+│   │   ├── color-convert
+│   │   ├── color-name
+│   │   ├── concat-map
+│   │   ├── convert-source-map
+│   │   ├── cross-spawn
+│   │   ├── csstype
+│   │   ├── debug
+│   │   ├── deep-is
+│   │   ├── detect-libc
+│   │   ├── electron-to-chromium
+│   │   ├── escalade
+│   │   ├── escape-string-regexp
+│   │   ├── @eslint
+│   │   ├── eslint
+│   │   ├── @eslint-community
+│   │   ├── eslint-plugin-react-hooks
+│   │   ├── eslint-plugin-react-refresh
+│   │   ├── eslint-scope
+│   │   ├── eslint-visitor-keys
+│   │   ├── espree
+│   │   ├── esquery
+│   │   ├── esrecurse
+│   │   ├── estraverse
+│   │   ├── esutils
+│   │   ├── fast-deep-equal
+│   │   ├── fast-json-stable-stringify
+│   │   ├── fast-levenshtein
+│   │   ├── fdir
+│   │   ├── file-entry-cache
+│   │   ├── find-up
+│   │   ├── flat-cache
+│   │   ├── flatted
+│   │   ├── gensync
+│   │   ├── globals
+│   │   ├── glob-parent
+│   │   ├── has-flag
+│   │   ├── hermes-estree
+│   │   ├── hermes-parser
+│   │   ├── @humanfs
+│   │   ├── @humanwhocodes
+│   │   ├── ignore
+│   │   ├── import-fresh
+│   │   ├── imurmurhash
+│   │   ├── isexe
+│   │   ├── is-extglob
+│   │   ├── is-glob
+│   │   ├── @jridgewell
+│   │   ├── jsesc
+│   │   ├── json5
+│   │   ├── json-buffer
+│   │   ├── json-schema-traverse
+│   │   ├── json-stable-stringify-without-jsonify
+│   │   ├── js-tokens
+│   │   ├── js-yaml
+│   │   ├── keyv
+│   │   ├── levn
+│   │   ├── lightningcss
+│   │   ├── lightningcss-linux-x64-gnu
+│   │   ├── locate-path
+│   │   ├── lodash.merge
+│   │   ├── lru-cache
+│   │   ├── minimatch
+│   │   ├── ms
+│   │   ├── nanoid
+│   │   ├── natural-compare
+│   │   ├── node-releases
+│   │   ├── optionator
+│   │   ├── @oxc-project
+│   │   ├── parent-module
+│   │   ├── path-exists
+│   │   ├── path-key
+│   │   ├── picocolors
+│   │   ├── picomatch
+│   │   ├── p-limit
+│   │   ├── p-locate
+│   │   ├── postcss
+│   │   ├── prelude-ls
+│   │   ├── punycode
+│   │   ├── react
+│   │   ├── react-dom
+│   │   ├── resolve-from
+│   │   ├── @rolldown
+│   │   ├── rolldown
+│   │   ├── scheduler
+│   │   ├── semver
+│   │   ├── shebang-command
+│   │   ├── shebang-regex
+│   │   ├── source-map-js
+│   │   ├── strip-json-comments
+│   │   ├── supports-color
+│   │   ├── tinyglobby
+│   │   ├── ts-api-utils
+│   │   ├── type-check
+│   │   ├── @types
+│   │   ├── typescript
+│   │   ├── @typescript-eslint
+│   │   ├── typescript-eslint
+│   │   ├── undici-types
+│   │   ├── update-browserslist-db
+│   │   ├── uri-js
+│   │   ├── vite
+│   │   ├── @vitejs
+│   │   ├── which
+│   │   ├── word-wrap
+│   │   ├── yallist
+│   │   ├── yocto-queue
+│   │   ├── zod
+│   │   └── zod-validation-error
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── public
+│   │   ├── favicon.svg
+│   │   └── icons.svg
+│   ├── README.md
+│   ├── src
+│   │   ├── api
+│   │   ├── App.css
+│   │   ├── App.tsx
+│   │   ├── assets
+│   │   ├── config.ts
+│   │   ├── index.css
+│   │   ├── main.tsx
+│   │   └── pyramydalV2.code-workspace
+│   ├── tsconfig.app.json
+│   ├── tsconfig.json
+│   ├── tsconfig.node.json
+│   └── vite.config.ts
+└── xls
+    ├── Copy of normare utilaje 2024 (version 1) (version 1ADI)(AutoRecovered).xlsx
+    ├── Evidenta comenzi v2.4.xlsx
+    └── Lista programe.xlsx
+
+155 directories, 62 files

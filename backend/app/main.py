@@ -112,6 +112,21 @@ class TriggerRecalcRequest(BaseModel):
     triggered_by_user: str | None = None
 
 
+class MainRowFilterRule(BaseModel):
+    field: str
+    mode: str
+    query: str | None = None
+
+
+class MainRowsQueryRequest(BaseModel):
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=20, ge=1, le=200)
+    search_field: str = "all"
+    search_mode: str = "contains"
+    search_query: str = ""
+    filters: list[MainRowFilterRule] = Field(default_factory=list)
+
+
 SELECT_MAIN_ROW_COLUMNS = [
     "id",
     "nr_fisa",
@@ -207,6 +222,56 @@ EDITABLE_MAIN_ROW_FIELDS = {
     "recalc_at",
 }
 
+FILTERABLE_MAIN_ROW_FIELDS = {
+    "id",
+    "nr_fisa",
+    "reper",
+    "client",
+    "buc",
+    "data_intrare",
+    "data_livrare",
+    "comanda",
+    "tratament",
+    "observatii",
+    "strung_colchester",
+    "strung_cnc",
+    "freze_mici",
+    "freze_mari",
+    "gaurire",
+    "rectificare",
+    "bwk",
+    "sip",
+    "norte",
+    "tos",
+    "bridgeport",
+    "eco",
+    "schaublin",
+    "hurco",
+    "matec",
+    "parpas",
+    "ajustare",
+    "filetare",
+    "marcare",
+    "curatare_filete",
+    "timp_per_buc",
+    "ore_totale",
+    "valoare_per_buc",
+    "valoare_totala",
+    "utilaj_folosit",
+    "soft_folosit",
+    "programator",
+    "locatie_dosar",
+    "status",
+    "control_status",
+    "magazie_status",
+    "created_by",
+    "updated_by",
+    "recalc_at",
+}
+
+
+GLOBAL_SEARCH_FIELDS = ["id", "nr_fisa", "reper", "client"]
+
 
 def serialize_main_row(row: tuple[object, ...]) -> dict[str, object | None]:
     payload: dict[str, object | None] = {}
@@ -226,6 +291,57 @@ def serialize_main_row(row: tuple[object, ...]) -> dict[str, object | None]:
 def validate_main_row_dates(payload: UpdateMainRowRequest | CreateMainRowRequest):
     if payload.data_intrare and payload.data_livrare and payload.data_livrare < payload.data_intrare:
         raise HTTPException(status_code=400, detail="data_livrare must be >= data_intrare")
+
+
+def build_filter_clause(field: str, mode: str, query: str | None, values: list[object]) -> str:
+    if field not in FILTERABLE_MAIN_ROW_FIELDS:
+        raise HTTPException(status_code=400, detail=f"Invalid filter field: {field}")
+    if mode not in {"contains", "has_value", "is_empty"}:
+        raise HTTPException(status_code=400, detail=f"Invalid filter mode: {mode}")
+
+    col_sql = f"CAST({field} AS TEXT)"
+    if mode == "has_value":
+        return f"NULLIF(BTRIM({col_sql}), '') IS NOT NULL"
+    if mode == "is_empty":
+        return f"NULLIF(BTRIM({col_sql}), '') IS NULL"
+
+    q = (query or "").strip()
+    if not q:
+        raise HTTPException(status_code=400, detail=f"Filter query required for field: {field}")
+    values.append(f"%{q}%")
+    return f"{col_sql} ILIKE %s"
+
+
+def build_main_rows_where_clause(payload: MainRowsQueryRequest) -> tuple[str, list[object]]:
+    values: list[object] = []
+    clauses: list[str] = ["deleted_at IS NULL"]
+
+    if payload.search_mode not in {"contains", "has_value", "is_empty"}:
+        raise HTTPException(status_code=400, detail=f"Invalid search mode: {payload.search_mode}")
+    if payload.search_field != "all" and payload.search_field not in FILTERABLE_MAIN_ROW_FIELDS:
+        raise HTTPException(status_code=400, detail=f"Invalid search field: {payload.search_field}")
+
+    search_query = payload.search_query.strip()
+    if payload.search_mode == "contains":
+        if search_query:
+            if payload.search_field == "all":
+                sub_clauses: list[str] = []
+                for field in GLOBAL_SEARCH_FIELDS:
+                    values.append(f"%{search_query}%")
+                    sub_clauses.append(f"CAST({field} AS TEXT) ILIKE %s")
+                clauses.append(f"({' OR '.join(sub_clauses)})")
+            else:
+                values.append(f"%{search_query}%")
+                clauses.append(f"CAST({payload.search_field} AS TEXT) ILIKE %s")
+    elif payload.search_field != "all":
+        clauses.append(build_filter_clause(payload.search_field, payload.search_mode, payload.search_query, values))
+    else:
+        raise HTTPException(status_code=400, detail="search_field must not be 'all' for has_value/is_empty")
+
+    for rule in payload.filters:
+        clauses.append(build_filter_clause(rule.field, rule.mode, rule.query, values))
+
+    return " AND ".join(clauses), values
 
 
 @app.get("/health")
@@ -295,6 +411,41 @@ def search_main_rows(query: str, limit: int = 100):
         )
         rows = cur.fetchall()
     return {"rows": [serialize_main_row(row) for row in rows]}
+
+
+@app.post("/api/main-rows/query")
+def query_main_rows(payload: MainRowsQueryRequest):
+    offset = (payload.page - 1) * payload.page_size
+    where_sql, where_values = build_main_rows_where_clause(payload)
+    with db_cursor() as (_, cur):
+        cur.execute(
+            f"""
+            SELECT COUNT(*)
+            FROM app.main_rows
+            WHERE {where_sql}
+            """,
+            tuple(where_values),
+        )
+        total = int(cur.fetchone()[0])
+
+        cur.execute(
+            f"""
+            SELECT {", ".join(SELECT_MAIN_ROW_COLUMNS)}
+            FROM app.main_rows
+            WHERE {where_sql}
+            ORDER BY id DESC
+            LIMIT %s OFFSET %s
+            """,
+            tuple(where_values + [payload.page_size, offset]),
+        )
+        rows = cur.fetchall()
+
+    return {
+        "rows": [serialize_main_row(row) for row in rows],
+        "total": total,
+        "page": payload.page,
+        "page_size": payload.page_size,
+    }
 
 
 @app.patch("/api/main-rows/{row_id}")

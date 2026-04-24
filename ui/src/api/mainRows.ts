@@ -51,7 +51,20 @@ export type MainRow = {
 
 type RowsResponse = {
   rows: MainRow[];
+  total?: number;
+  page?: number;
+  page_size?: number;
   mode: "aws" | "localstack";
+};
+
+export type SearchMode = "contains" | "has_value" | "is_empty";
+export type SearchField = "all" | "id" | keyof MainRow;
+export type FilterField = Exclude<SearchField, "all">;
+export type FilterRule = {
+  id: string;
+  field: FilterField;
+  mode: SearchMode;
+  query: string;
 };
 
 export async function fetchMainRows(
@@ -68,6 +81,44 @@ export async function fetchMainRows(
 
   const payload = (await response.json()) as { rows: MainRow[] };
   return { rows: payload.rows, mode: runtimeConfig.mode };
+}
+
+export async function queryMainRows(params: {
+  page: number;
+  pageSize: number;
+  searchField: SearchField;
+  searchMode: SearchMode;
+  searchQuery: string;
+  filters: FilterRule[];
+}): Promise<RowsResponse> {
+  const response = await fetch(`${runtimeConfig.baseUrl}/api/main-rows/query`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      page: params.page,
+      page_size: params.pageSize,
+      search_field: params.searchField,
+      search_mode: params.searchMode,
+      search_query: params.searchQuery,
+      filters: params.filters.map((rule) => ({
+        field: rule.field,
+        mode: rule.mode,
+        query: rule.query,
+      })),
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Request failed with ${response.status}`);
+  }
+  const payload = (await response.json()) as {
+    rows: MainRow[];
+    total: number;
+    page: number;
+    page_size: number;
+  };
+  return { ...payload, mode: runtimeConfig.mode };
 }
 
 export async function fetchMainRowById(id: number): Promise<{

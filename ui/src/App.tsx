@@ -3,11 +3,13 @@ import "./App.css";
 import {
   createMainRow,
   deleteMainRow,
-  fetchMainRowById,
   fetchMainRows,
   fetchRecalcStatus,
+  queryMainRows,
   saveMainRowUpdate,
-  searchMainRows,
+  type FilterRule,
+  type SearchField,
+  type SearchMode,
   type MainRow,
 } from "./api/mainRows";
 import { runtimeConfig } from "./config";
@@ -42,15 +44,7 @@ const MACHINE_FIELDS = [
 
 type MachineField = (typeof MACHINE_FIELDS)[number];
 type ColumnKey = keyof MainRow | "id" | "actions";
-type SearchField = "all" | "id" | keyof MainRow;
-type SearchMode = "contains" | "has_value" | "is_empty";
 type FilterField = Exclude<SearchField, "all">;
-type FilterRule = {
-  id: string;
-  field: FilterField;
-  mode: SearchMode;
-  query: string;
-};
 
 const COLUMN_ORDER: ColumnKey[] = [
   "id",
@@ -271,36 +265,12 @@ function parseOptionalNumber(value: string): number | null {
   return parsed;
 }
 
-function hasMeaningfulValue(value: unknown): boolean {
-  if (value === null || value === undefined) {
-    return false;
-  }
-  if (typeof value === "string") {
-    return value.trim().length > 0;
-  }
-  if (typeof value === "number") {
-    return value !== 0;
-  }
-  return true;
-}
-
 function shouldLoadNextPageForPosition(scrollTop: number, clientHeight: number): boolean {
   const adaptiveThreshold = Math.max(
     SCROLL_THRESHOLD_PX,
     clientHeight * SCROLL_THRESHOLD_VIEWPORT_MULTIPLIER,
   );
   return scrollTop <= adaptiveThreshold;
-}
-
-function rowMatchesRule(row: MainRow, rule: FilterRule): boolean {
-  const cellValue: unknown = rule.field === "id" ? row.id : row[rule.field];
-  if (rule.mode === "has_value") {
-    return hasMeaningfulValue(cellValue);
-  }
-  if (rule.mode === "is_empty") {
-    return !hasMeaningfulValue(cellValue);
-  }
-  return String(cellValue ?? "").toLowerCase().includes(rule.query.trim().toLowerCase());
 }
 
 function isFilterField(columnKey: ColumnKey): columnKey is FilterField {
@@ -314,7 +284,6 @@ function App() {
   const [searchField, setSearchField] = useState<SearchField>("all");
   const [searchMode, setSearchMode] = useState<SearchMode>("contains");
   const [appliedSearchQuery, setAppliedSearchQuery] = useState("");
-  const [appliedSearchField, setAppliedSearchField] = useState<SearchField>("all");
   const [appliedSearchMode, setAppliedSearchMode] = useState<SearchMode>("contains");
   const [filterRules, setFilterRules] = useState<FilterRule[]>([]);
   const [appliedFilterRules, setAppliedFilterRules] = useState<FilterRule[]>([]);
@@ -362,6 +331,18 @@ function App() {
   const shouldStickBottomRef = useRef(true);
   const loadingPageRef = useRef<number | null>(null);
   const loadedPagesRef = useRef<Set<number>>(new Set());
+  const querySignatureRef = useRef<string>("");
+  const queryStateRef = useRef<{
+    searchField: SearchField;
+    searchMode: SearchMode;
+    searchQuery: string;
+    filters: FilterRule[];
+  }>({
+    searchField: "all",
+    searchMode: "contains",
+    searchQuery: "",
+    filters: [],
+  });
   const prependScrollAdjustRef = useRef<{
     previousScrollHeight: number;
     previousScrollTop: number;
@@ -378,91 +359,7 @@ function App() {
     () => [...rows].sort((a, b) => a.id - b.id),
     [rows],
   );
-  const filteredRows = useMemo(() => {
-    const q = appliedSearchQuery.trim().toLowerCase();
-    let baseRows = displayRows;
-    if (!q && appliedSearchMode === "contains") {
-      baseRows = displayRows;
-    } else if (appliedSearchField !== "all") {
-      baseRows = displayRows.filter((row) => {
-        const cellValue: unknown =
-          appliedSearchField === "id" ? row.id : row[appliedSearchField];
-        if (appliedSearchMode === "has_value") {
-          return hasMeaningfulValue(cellValue);
-        }
-        if (appliedSearchMode === "is_empty") {
-          return !hasMeaningfulValue(cellValue);
-        }
-        return String(cellValue ?? "").toLowerCase().includes(q);
-      });
-    } else if (appliedSearchMode === "has_value" || appliedSearchMode === "is_empty") {
-      baseRows = displayRows.filter((row) => {
-        const values: unknown[] = [
-          row.nr_fisa,
-          row.reper,
-          row.client,
-          row.buc,
-          row.data_intrare,
-          row.data_livrare,
-          row.comanda,
-          row.tratament,
-          row.observatii,
-          row.strung_colchester,
-          row.strung_cnc,
-          row.freze_mici,
-          row.freze_mari,
-          row.gaurire,
-          row.rectificare,
-          row.bwk,
-          row.sip,
-          row.norte,
-          row.tos,
-          row.bridgeport,
-          row.eco,
-          row.schaublin,
-          row.hurco,
-          row.matec,
-          row.parpas,
-          row.ajustare,
-          row.filetare,
-          row.marcare,
-          row.curatare_filete,
-          row.timp_per_buc,
-          row.ore_totale,
-          row.valoare_per_buc,
-          row.valoare_totala,
-          row.utilaj_folosit,
-          row.soft_folosit,
-          row.programator,
-          row.locatie_dosar,
-          row.status,
-          row.control_status,
-          row.magazie_status,
-          row.created_by,
-          row.updated_by,
-          row.recalc_at,
-        ];
-        const hasAny = values.some((value) => hasMeaningfulValue(value));
-        return appliedSearchMode === "has_value" ? hasAny : !hasAny;
-      });
-    } else {
-      baseRows = displayRows.filter((row) => {
-        const nrFisa = String(row.nr_fisa ?? "").toLowerCase();
-        const reper = String(row.reper ?? "").toLowerCase();
-        const client = String(row.client ?? "").toLowerCase();
-        return (
-          String(row.id).includes(q) ||
-          nrFisa.includes(q) ||
-          reper.includes(q) ||
-          client.includes(q)
-        );
-      });
-    }
-    if (appliedFilterRules.length === 0) {
-      return baseRows;
-    }
-    return baseRows.filter((row) => appliedFilterRules.every((rule) => rowMatchesRule(row, rule)));
-  }, [displayRows, appliedSearchQuery, appliedSearchField, appliedSearchMode, appliedFilterRules]);
+  const filteredRows = useMemo(() => displayRows, [displayRows]);
   const isSearchActive =
     appliedSearchMode === "contains"
       ? appliedSearchQuery.trim().length > 0 || appliedFilterRules.length > 0
@@ -597,6 +494,22 @@ function App() {
     setStatus(`Filter cleared on ${DEFAULT_COLUMN_LABELS[field]}.`);
   }
 
+  function activeQuerySignature(
+    searchFieldValue: SearchField,
+    searchModeValue: SearchMode,
+    searchQueryValue: string,
+    rules: FilterRule[],
+  ): string {
+    return JSON.stringify({
+      searchField: searchFieldValue,
+      searchMode: searchModeValue,
+      searchQuery: searchQueryValue.trim(),
+      filters: rules
+        .map((rule) => ({ field: rule.field, mode: rule.mode, query: rule.query.trim() }))
+        .sort((a, b) => `${a.field}:${a.mode}:${a.query}`.localeCompare(`${b.field}:${b.mode}:${b.query}`)),
+    });
+  }
+
   async function applySearch() {
     const trimmed = searchInput.trim();
     if (searchMode !== "contains" && searchField === "all") {
@@ -605,7 +518,6 @@ function App() {
     }
     if (!trimmed && searchMode === "contains") {
       setAppliedSearchQuery("");
-      setAppliedSearchField("all");
       setAppliedSearchMode("contains");
       setAppliedFilterRules(
         filterRules.map((rule) => ({
@@ -614,6 +526,17 @@ function App() {
         })),
       );
       setStatus(filterRules.length === 0 ? "Search cleared." : "Search cleared. Column filters still active.");
+      setHasMoreRows(true);
+      setNextPage(1);
+      loadedPagesRef.current.clear();
+      queryStateRef.current = {
+        searchField: "all",
+        searchMode: "contains",
+        searchQuery: "",
+        filters: filterRules,
+      };
+      querySignatureRef.current = activeQuerySignature("all", "contains", "", filterRules);
+      await loadPage(1, true);
       return;
     }
     const normalizedRules = filterRules.map((rule) => ({
@@ -630,7 +553,6 @@ function App() {
     }
     setAppliedFilterRules(normalizedRules);
     if (searchField !== "all" || searchMode !== "contains") {
-      setAppliedSearchField(searchField);
       setAppliedSearchMode(searchMode);
       setAppliedSearchQuery(trimmed);
       const fieldLabel =
@@ -648,51 +570,31 @@ function App() {
           `Filtering rows where ${fieldLabel} is empty with ${normalizedRules.length} extra filter(s).`,
         );
       }
+      setHasMoreRows(true);
+      setNextPage(1);
+      loadedPagesRef.current.clear();
+      queryStateRef.current = {
+        searchField,
+        searchMode,
+        searchQuery: trimmed,
+        filters: normalizedRules,
+      };
+      querySignatureRef.current = activeQuerySignature(searchField, searchMode, trimmed, normalizedRules);
+      await loadPage(1, true);
       return;
     }
-    setAppliedSearchField("all");
     setAppliedSearchMode("contains");
-    const searchResult = await searchMainRows(trimmed, 150);
-    if (searchResult.ok && searchResult.rows.length > 0) {
-      setRows((prev) => {
-        const byId = new Map<number, MainRow>();
-        for (const row of [...prev, ...searchResult.rows]) {
-          byId.set(row.id, row);
-        }
-        return [...byId.values()];
-      });
-      setAppliedSearchQuery(trimmed);
-      setStatus(
-        `Found ${searchResult.rows.length} rows for "${trimmed}" with ${normalizedRules.length} extra filter(s).`,
-      );
-      return;
-    }
-    setAppliedSearchQuery(trimmed);
-    if (/^\d+$/.test(trimmed)) {
-      const rowId = Number(trimmed);
-      const result = await fetchMainRowById(rowId);
-      if (!result.ok || !result.row) {
-        setStatus(`No rows found for "${trimmed}".`);
-        return;
-      }
-      const foundRow = result.row;
-      setRows((prev) => {
-        const byId = new Map<number, MainRow>();
-        for (const row of [...prev, foundRow]) {
-          byId.set(row.id, row);
-        }
-        return [...byId.values()];
-      });
-      setSelectedRowId(rowId);
-      setAppliedSearchQuery(trimmed);
-      setStatus(`Jumped to row ID ${rowId}.`);
-      setTimeout(() => {
-        const rowEl = document.getElementById(`row-${rowId}`);
-        rowEl?.scrollIntoView({ block: "center", inline: "nearest" });
-      }, 0);
-      return;
-    }
-    setStatus(`No rows found for "${trimmed}".`);
+    setHasMoreRows(true);
+    setNextPage(1);
+    loadedPagesRef.current.clear();
+    queryStateRef.current = {
+      searchField: "all",
+      searchMode: "contains",
+      searchQuery: trimmed,
+      filters: normalizedRules,
+    };
+    querySignatureRef.current = activeQuerySignature("all", "contains", trimmed, normalizedRules);
+    await loadPage(1, true);
   }
 
   function beginCellEdit(row: MainRow, field: keyof MainRow) {
@@ -815,7 +717,23 @@ function App() {
     setIsLoadingMore(true);
     setStatus(reset ? "Loading rows..." : "Loading more rows...");
     try {
-      const result = await fetchMainRows(pageToLoad, PAGE_SIZE);
+      const activeSignature = activeQuerySignature(
+        queryStateRef.current.searchField,
+        queryStateRef.current.searchMode,
+        queryStateRef.current.searchQuery,
+        queryStateRef.current.filters,
+      );
+      const result =
+        isSearchActive || querySignatureRef.current === activeSignature
+          ? await queryMainRows({
+              page: pageToLoad,
+              pageSize: PAGE_SIZE,
+              searchField: queryStateRef.current.searchField,
+              searchMode: queryStateRef.current.searchMode,
+              searchQuery: queryStateRef.current.searchQuery,
+              filters: queryStateRef.current.filters,
+            })
+          : await fetchMainRows(pageToLoad, PAGE_SIZE);
       setRows((prev) => {
         const merged = reset ? result.rows : [...prev, ...result.rows];
         const byId = new Map<number, MainRow>();
@@ -826,7 +744,12 @@ function App() {
       });
       loadedPagesRef.current.add(pageToLoad);
       setNextPage(pageToLoad + 1);
-      setHasMoreRows(result.rows.length === PAGE_SIZE);
+      if (typeof result.total === "number") {
+        const loadedCount = (pageToLoad - 1) * PAGE_SIZE + result.rows.length;
+        setHasMoreRows(loadedCount < result.total);
+      } else {
+        setHasMoreRows(result.rows.length === PAGE_SIZE);
+      }
       setStatus(`Loaded rows from ${result.mode} endpoint.`);
     } catch (error) {
       setStatus(`Load failed: ${error instanceof Error ? error.message : "unknown"}`);

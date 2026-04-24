@@ -59,3 +59,17 @@ variable "backup_retention_days" {
   default     = 14 # 2 weeks for production
 }
 
+
+# SQS variables for localstack deployment
+variable "use_localstack_for_sqs" {
+  description = "If true, create SQS resources in LocalStack instead of AWS"
+  type        = bool
+  default     = false
+}
+
+variable "localstack_endpoint" {
+  description = "LocalStack endpoint URL"
+  type        = string
+  default     = "http://localhost:4566"
+}
+
