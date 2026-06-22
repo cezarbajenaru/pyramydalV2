@@ -1,9 +1,5 @@
 SET search_path TO app, public;
 
-TRUNCATE TABLE app.main_rows RESTART IDENTITY CASCADE;
-TRUNCATE TABLE app.lista_programe RESTART IDENTITY CASCADE;
-TRUNCATE TABLE app.price_list RESTART IDENTITY CASCADE;
-
 INSERT INTO app.lista_programe (
   reper, client, indice, soft_folosit, utilaj, programator, locatie_dosar, timpi_masinare
 )

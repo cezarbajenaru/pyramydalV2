@@ -1,5 +1,7 @@
 # PyramydalV2 Implementation Summary
 
+> **Start here:** [docs/GUIDE.md](docs/GUIDE.md)
+
 ## Current State
 - Terraform-managed AWS platform for data and automation is in place.
 - PostgreSQL schema + audit/recalc procedures exist under `db/schema`.

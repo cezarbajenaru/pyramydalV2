@@ -1,47 +1,26 @@
-excel-platform/
+# Repository structure
+
+> **Consolidated guide:** [GUIDE.md](GUIDE.md#repository-layout).
+
+```text
+pyramydalV2/
 ├── README.md
-├── QUICK_START.md
-├── docs/
-│   ├── architecture.md
-│   ├── data-model.md
-│   ├── import-flow.md
-│   ├── recalc-logic.md
-│   └── runbook.md
-│
-├── infra/
-│   ├── terraform/
-│   │   ├── modules/
-│   │   │   ├── rds/
-│   │   │   ├── s3/
-│   │   │   ├── iam/
-│   │   │   └── lambda/
-│   │   ├── environments/
-│   │   │   └── prod/
-│   │   └── main.tf
-│   │
-│   └── scripts/
-│       └── bootstrap.sh
-│
-├── ui/
-│   ├── src/
-│   ├── public/
-│   ├── package.json
-│   └── vite.config.ts
-│
-├── db/
-│   ├── schema/
-│   │   ├── 001_init.sql
-│   │   ├── 002_staging_and_audit.sql
-│   │   └── 003_recalc_procedures.sql
-│   └── migrations/
-│
+├── docs/GUIDE.md          # Single entry point (start here)
+├── backend/               # FastAPI API
+├── ui/                    # React/Vite web app
 ├── lambda/
 │   ├── import_reference/
 │   └── recalc/
-│
-├── .github/
-│   └── workflows/
-│       ├── terraform.yml
-│       └── deploy-lambda.yml
-│
-└── .gitignore
+├── db/
+├── db/
+│   ├── alembic/           # Alembic migrations
+│   ├── schema/            # Reference SQL (initial migration source)
+│   └── seed/
+├── infra/terraform/
+│   ├── modules/           # rds, s3, iam, lambda, vpc, ...
+│   └── environments/prod/
+├── scripts/               # bootstrap-test-app, build-lambda-packages, initial_load
+├── .github/workflows/
+├── docker-compose.local.yml
+└── xls/                   # Local sample XLSX (not committed)
+```

@@ -1,5 +1,7 @@
 # XLSX Import Flow
 
+> **Consolidated guide:** [GUIDE.md](GUIDE.md). This file is extended reference.
+
 ## Overview
 
 The import pipeline safely loads reference data from Excel files into PostgreSQL, with validation and rollback capability.

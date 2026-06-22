@@ -1,5 +1,7 @@
 # Data Model
 
+> **Consolidated guide:** [GUIDE.md](GUIDE.md). This file is extended reference.
+
 ## Overview
 
 PyramydalV2 uses a PostgreSQL database with a clear separation between:

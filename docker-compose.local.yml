@@ -26,9 +26,9 @@ services:
   backend:
     image: python:3.11-slim
     working_dir: /app
-    command: bash -lc "pip install -r backend/requirements.txt && uvicorn backend.app.main:app --host 0.0.0.0 --port 8000"
+    command: bash -lc "pip install -r backend/requirements.txt && uvicorn backend.app.main:app --host 0.0.0.0 --port 8001"
     ports:
-      - "8000:8000"
+      - "8001:8001"
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432

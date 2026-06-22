@@ -1,5 +1,7 @@
 # MVP Milestone Plan
 
+> **Consolidated guide:** [GUIDE.md](GUIDE.md#roadmap-notes). This file is extended reference.
+
 ## Overview
 
 This plan delivers a **production-capable MVP from day 1** with proper backups, versioning, and restricted access. No overengineering, but production-appropriate from the start.
@@ -37,11 +39,10 @@ This plan delivers a **production-capable MVP from day 1** with proper backups, 
 - [ ] Verify all resources created
 
 **Day 5: Database Initialization**
-- [ ] Connect to RDS via psql
-- [ ] Run `001_init.sql` (main schema)
-- [ ] Run `002_staging_and_audit.sql` (staging + audit tables)
-- [ ] Run `003_recalc_procedures.sql` (stored procedures)
+- [ ] Connect to RDS via psql (optional, for verification)
+- [ ] Run `./scripts/db-migrate.sh` from repo root with RDS `.env` settings
 - [ ] Verify: `\dt app.*` shows all tables
+- [ ] Verify: `SELECT version_num FROM alembic_version;` shows latest revision
 
 **Day 6-7: Lambda Deployment**
 - [ ] Package Lambda functions (pip install + zip)

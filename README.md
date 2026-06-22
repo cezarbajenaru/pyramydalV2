@@ -2,49 +2,40 @@
 
 Internal AWS platform for production data management (75k+ rows), automated recalculation, and project-owned UI.
 
-## Problem Statement
-- Current Excel workflow is slow at scale
+## Problem
+
+- Excel workflow is slow at scale
 - Manual cross-file formulas are error-prone
 - No centralized audit trail or automation controls
 
-## Current Architecture
-- **Database**: RDS PostgreSQL (system of record)
-- **Storage**: S3 (uploads/exports with versioning)
-- **Compute**: Lambda (imports + scheduled recalculation)
-- **Infrastructure**: Terraform
-- **CI/CD**: GitHub Actions
-- **Backend API**: single FastAPI service for prod + localstack tests
-- **UI**: In-house web app (React/Vite)
+## Stack
 
-## Repository Structure
-```text
-pyramydalV2/
-├── infra/              # Terraform infrastructure
-├── lambda/             # Import and recalculation functions
-├── db/                 # Database schema and migrations
-├── backend/            # Production backend API (shared with localstack tests)
-├── ui/                 # In-house web UI (Appsmith-like UX)
-├── docs/               # Architecture and operations
-├── .github/workflows/  # CI/CD pipelines
-└── xls/                # Sample/reference XLSX files (not committed)
+- **Database:** RDS PostgreSQL
+- **Storage:** S3 (uploads/exports, versioned)
+- **Compute:** Lambda (imports + recalc every 15 min)
+- **Backend:** FastAPI (prod + localstack)
+- **UI:** React/Vite in-house app
+- **Infra:** Terraform + GitHub Actions
+
+## Start here
+
+**[docs/GUIDE.md](docs/GUIDE.md)** — local dev, production deploy, operations, architecture.
+
+Quick local start:
+
+```bash
+cp .env.example .env
+./scripts/bootstrap-test-app.sh
 ```
 
-## Quick Start
-See `QUICK_START.md` for full setup.
-Backend runs as single implementation path for both production and localstack.
+→ UI http://localhost:5173 · Backend http://localhost:8001
 
-## Key Features
-- Scalable tabular data operations for 75k+ rows
-- Scheduled derived-column recalculation every 15 minutes
-- XLSX import pipeline with staging and validation
-- Audit trail (`imports_audit`, `recalc_runs`, `user_edits`)
-- Localstack-ready interfaces for future local testing
+## Deep dives
 
-## Documentation
-- [Architecture Overview](docs/architecture.md)
-- [Data Model](docs/data-model.md)
-- [Import Flow](docs/import-flow.md)
-- [Recalculation Logic](docs/recalc-logic.md)
-- [Operations Runbook](docs/runbook.md)
-- [MVP Milestone Plan](docs/mvp-plan.md)
-
+| Doc | Topic |
+|-----|-------|
+| [db/README.md](db/README.md) | Alembic migrations |
+| [data-model.md](docs/data-model.md) | Schema and columns |
+| [import-flow.md](docs/import-flow.md) | XLSX import pipeline |
+| [recalc-logic.md](docs/recalc-logic.md) | Derived column logic |
+| [mvp-plan.md](docs/mvp-plan.md) | Milestones and timeline |

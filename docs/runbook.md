@@ -1,5 +1,7 @@
 # Operations Runbook
 
+> **Consolidated guide:** [GUIDE.md](GUIDE.md#day-to-day-operations). This file is extended reference.
+
 ## Scope
 This runbook covers operations for core AWS platform components:
 - RDS PostgreSQL
@@ -18,12 +20,10 @@ terraform plan
 terraform apply
 ```
 
-### 2) DB initialization
+### 2) DB migrations
 ```bash
-RDS_ENDPOINT=$(terraform output -raw rds_address)
-psql -h "$RDS_ENDPOINT" -U admin -d production -f db/schema/001_init.sql
-psql -h "$RDS_ENDPOINT" -U admin -d production -f db/schema/002_staging_and_audit.sql
-psql -h "$RDS_ENDPOINT" -U admin -d production -f db/schema/003_recalc_procedures.sql
+export DB_HOST="$RDS_ENDPOINT" DB_PORT=5432 DB_NAME=production DB_USER=admin DB_PASSWORD="$DB_PASSWORD"
+./scripts/db-migrate.sh
 ```
 
 ### 3) Lambda packaging/deploy

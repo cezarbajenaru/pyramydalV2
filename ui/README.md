@@ -2,6 +2,8 @@
 
 Project-owned UI shell replacing previous Appsmith integration.
 
+**Setup:** see [docs/GUIDE.md](../docs/GUIDE.md#local-development).
+
 ## Implemented in this phase
 - Appsmith-like workspace layout:
   - left navigation

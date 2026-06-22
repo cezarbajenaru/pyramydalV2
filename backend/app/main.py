@@ -22,7 +22,11 @@ app.add_middleware(
 lambda_client = boto3.client(
     "lambda",
     region_name=settings.aws_region,
-    endpoint_url=settings.aws_endpoint_url,
+    **(
+        {"endpoint_url": settings.aws_endpoint_url}
+        if settings.aws_endpoint_url
+        else {}
+    ),
 )
 
 

@@ -1,5 +1,7 @@
 # PyramydalV2 Architecture
 
+> **Consolidated guide:** [GUIDE.md](GUIDE.md). This file is extended reference.
+
 ## System Overview
 PyramydalV2 is an AWS-based data platform replacing spreadsheet-based production tracking with scalable storage, automated calculations, and a project-owned web UI.
 

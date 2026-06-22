@@ -308,12 +308,42 @@ tbody tr:hover {
   background: #1f2f45;
 }
 
-tbody tr:nth-child(even) {
+tbody tr.row-even {
   background: #0f1a2d;
 }
 
-.selected-row {
+tbody tr.row-even:hover {
+  background: #1f2f45;
+}
+
+tbody tr.selected-row,
+tbody tr.selected-row.row-even {
   background: #1d4ed8;
+}
+
+tbody tr.selected-row:hover,
+tbody tr.selected-row.row-even:hover {
+  background: #1d4ed8;
+}
+
+.virtual-spacer {
+  pointer-events: none;
+}
+
+.virtual-spacer td {
+  padding: 0;
+  border: none;
+  height: 0;
+  line-height: 0;
+}
+
+tbody tr[data-index] {
+  box-sizing: border-box;
+  height: 44px;
+}
+
+tbody tr[data-index] td {
+  vertical-align: middle;
 }
 
 .cell-input {

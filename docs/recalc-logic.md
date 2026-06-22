@@ -1,5 +1,7 @@
 # Recalculation Logic
 
+> **Consolidated guide:** [GUIDE.md](GUIDE.md). This file is extended reference.
+
 ## Overview
 
 The recalculation system automatically updates derived columns in `main_rows` based on reference data every 15 minutes using SQL UPDATE...FROM joins.

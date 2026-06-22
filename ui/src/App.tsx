@@ -1,4 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type UIEvent } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type UIEvent,
+} from "react";
 import "./App.css";
 import {
   createMainRow,
@@ -15,6 +25,8 @@ import {
 import { runtimeConfig } from "./config";
 
 const PAGE_SIZE = 50;
+const ROW_HEIGHT_ESTIMATE = 44;
+const VIRTUAL_OVERSCAN = 8;
 const SCROLL_THRESHOLD_PX = 900;
 const SCROLL_THRESHOLD_VIEWPORT_MULTIPLIER = 2.75;
 const COLUMN_LABELS_STORAGE_KEY = "pyramydal.mainRows.columnLabels.v1";
@@ -277,6 +289,140 @@ function isFilterField(columnKey: ColumnKey): columnKey is FilterField {
   return columnKey !== "actions" && SEARCHABLE_FIELDS.includes(columnKey as SearchField);
 }
 
+type VirtualizedMainRowProps = {
+  row: MainRow;
+  rowIndex: number;
+  isSelected: boolean;
+  onSelect: (rowId: number) => void;
+  onBeginCellEdit: (row: MainRow, field: keyof MainRow) => void;
+  onUseAsTemplate: (row: MainRow) => void;
+  activeCell: { rowId: number; field: keyof MainRow } | null;
+  activeCellValue: string;
+  onActiveCellValueChange: (value: string) => void;
+  onCommitCellEdit: () => void;
+  onCellEditorKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
+  editableCellFields: Set<keyof MainRow>;
+  isSaving: boolean;
+};
+
+const VirtualizedMainRow = memo(function VirtualizedMainRow({
+  row,
+  rowIndex,
+  isSelected,
+  onSelect,
+  onBeginCellEdit,
+  onUseAsTemplate,
+  activeCell,
+  activeCellValue,
+  onActiveCellValueChange,
+  onCommitCellEdit,
+  onCellEditorKeyDown,
+  editableCellFields,
+  isSaving,
+}: VirtualizedMainRowProps) {
+  function renderGridCell(field: keyof MainRow) {
+    const isEditing = activeCell?.rowId === row.id && activeCell.field === field;
+    if (isEditing) {
+      const inputType = field === "data_intrare" || field === "data_livrare" ? "date" : "text";
+      return (
+        <input
+          autoFocus
+          type={inputType}
+          className="cell-inline-editor"
+          value={activeCellValue}
+          onChange={(event) => onActiveCellValueChange(event.target.value)}
+          onBlur={() => void onCommitCellEdit()}
+          onKeyDown={onCellEditorKeyDown}
+          onClick={(event) => event.stopPropagation()}
+        />
+      );
+    }
+    return (
+      <span className={editableCellFields.has(field) ? "editable-cell" : ""}>
+        {formatCell(row[field])}
+      </span>
+    );
+  }
+
+  const rowClassName = [isSelected ? "selected-row" : "", rowIndex % 2 === 1 ? "row-even" : ""]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <tr
+      data-index={rowIndex}
+      id={`row-${row.id}`}
+      onMouseDown={(event) => {
+        if (event.button !== 0) {
+          return;
+        }
+        event.preventDefault();
+        onSelect(row.id);
+      }}
+      className={rowClassName || undefined}
+    >
+      <td>{row.id}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "nr_fisa")}>{renderGridCell("nr_fisa")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "reper")}>{renderGridCell("reper")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "client")}>{renderGridCell("client")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "buc")}>{renderGridCell("buc")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "data_intrare")}>{renderGridCell("data_intrare")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "data_livrare")}>{renderGridCell("data_livrare")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "comanda")}>{renderGridCell("comanda")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "tratament")}>{renderGridCell("tratament")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "observatii")}>{renderGridCell("observatii")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "strung_colchester")}>{renderGridCell("strung_colchester")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "strung_cnc")}>{renderGridCell("strung_cnc")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "freze_mici")}>{renderGridCell("freze_mici")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "freze_mari")}>{renderGridCell("freze_mari")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "gaurire")}>{renderGridCell("gaurire")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "rectificare")}>{renderGridCell("rectificare")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "bwk")}>{renderGridCell("bwk")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "sip")}>{renderGridCell("sip")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "norte")}>{renderGridCell("norte")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "tos")}>{renderGridCell("tos")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "bridgeport")}>{renderGridCell("bridgeport")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "eco")}>{renderGridCell("eco")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "schaublin")}>{renderGridCell("schaublin")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "hurco")}>{renderGridCell("hurco")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "matec")}>{renderGridCell("matec")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "parpas")}>{renderGridCell("parpas")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "ajustare")}>{renderGridCell("ajustare")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "filetare")}>{renderGridCell("filetare")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "marcare")}>{renderGridCell("marcare")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "curatare_filete")}>{renderGridCell("curatare_filete")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "timp_per_buc")}>{renderGridCell("timp_per_buc")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "ore_totale")}>{renderGridCell("ore_totale")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "valoare_per_buc")}>{renderGridCell("valoare_per_buc")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "valoare_totala")}>{renderGridCell("valoare_totala")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "utilaj_folosit")}>{renderGridCell("utilaj_folosit")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "soft_folosit")}>{renderGridCell("soft_folosit")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "programator")}>{renderGridCell("programator")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "locatie_dosar")}>{renderGridCell("locatie_dosar")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "status")}>{renderGridCell("status")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "control_status")}>{renderGridCell("control_status")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "magazie_status")}>{renderGridCell("magazie_status")}</td>
+      <td>{formatCell(row.created_at)}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "created_by")}>{renderGridCell("created_by")}</td>
+      <td>{formatCell(row.updated_at)}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "updated_by")}>{renderGridCell("updated_by")}</td>
+      <td onDoubleClick={() => onBeginCellEdit(row, "recalc_at")}>{renderGridCell("recalc_at")}</td>
+      <td>
+        <button
+          className="small-btn"
+          onClick={(event) => {
+            event.stopPropagation();
+            onUseAsTemplate(row);
+          }}
+          disabled={isSaving}
+        >
+          Use as template
+        </button>
+      </td>
+    </tr>
+  );
+});
+
 function App() {
   const [rows, setRows] = useState<MainRow[]>([]);
   const [selectedRowId, setSelectedRowId] = useState<number | null>(null);
@@ -360,6 +506,18 @@ function App() {
     [rows],
   );
   const filteredRows = useMemo(() => displayRows, [displayRows]);
+  const rowVirtualizer = useVirtualizer({
+    count: filteredRows.length,
+    getScrollElement: () => tableWrapRef.current,
+    estimateSize: () => ROW_HEIGHT_ESTIMATE,
+    overscan: VIRTUAL_OVERSCAN,
+  });
+  const virtualRows = rowVirtualizer.getVirtualItems();
+  const virtualPaddingTop = virtualRows.length > 0 ? virtualRows[0].start : 0;
+  const virtualPaddingBottom =
+    virtualRows.length > 0
+      ? rowVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
+      : 0;
   const isSearchActive =
     appliedSearchMode === "contains"
       ? appliedSearchQuery.trim().length > 0 || appliedFilterRules.length > 0
@@ -668,31 +826,9 @@ function App() {
     }
   }
 
-  function renderGridCell(row: MainRow, field: keyof MainRow) {
-    const isEditing = activeCell?.rowId === row.id && activeCell.field === field;
-    if (isEditing) {
-      const inputType = field === "data_intrare" || field === "data_livrare" ? "date" : "text";
-      return (
-        <input
-          autoFocus
-          type={inputType}
-          className="cell-inline-editor"
-          value={activeCellValue}
-          onChange={(event) => setActiveCellValue(event.target.value)}
-          onBlur={() => void commitCellEdit()}
-          onKeyDown={onCellEditorKeyDown}
-          onClick={(event) => event.stopPropagation()}
-        />
-      );
-    }
-    return (
-      <span
-        className={editableCellFields.has(field) ? "editable-cell" : ""}
-      >
-        {formatCell(row[field])}
-      </span>
-    );
-  }
+  const selectRowById = useCallback((rowId: number) => {
+    setSelectedRowId(rowId);
+  }, []);
 
   async function loadPage(pageToLoad: number, reset = false) {
     if (isLoadingMore && !reset) {
@@ -882,17 +1018,20 @@ function App() {
   }, [rows]);
 
   useEffect(() => {
-    const el = tableWrapRef.current;
-    if (!el || !shouldStickBottomRef.current) {
+    if (!shouldStickBottomRef.current || filteredRows.length === 0) {
       return;
     }
     // Excel-like: land user at latest rows (bottom) on initial load/refresh.
-    el.scrollTop = el.scrollHeight;
+    rowVirtualizer.scrollToIndex(filteredRows.length - 1, { align: "end" });
+    const el = tableWrapRef.current;
+    if (!el) {
+      return;
+    }
     const scrollableNow = el.scrollHeight > el.clientHeight + 2;
     if (!isLoadingMore && (scrollableNow || !hasMoreRows)) {
       shouldStickBottomRef.current = false;
     }
-  }, [rows, isLoadingMore, hasMoreRows]);
+  }, [filteredRows.length, isLoadingMore, hasMoreRows]);
 
   useEffect(() => {
     try {
@@ -1009,10 +1148,7 @@ function App() {
     });
     selectRow(createdRow);
     clearComposer();
-    const el = tableWrapRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
-    }
+    shouldStickBottomRef.current = true;
     setStatus(`Row ${createdRow.id} created via ${result.mode}.`);
   }
 
@@ -1256,73 +1392,48 @@ function App() {
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map((row) => (
+              {virtualPaddingTop > 0 && (
                 <tr
-                  key={row.id}
-                  id={`row-${row.id}`}
-                  onClick={() => selectRow(row)}
-                  className={selectedRowId === row.id ? "selected-row" : ""}
+                  className="virtual-spacer"
+                  aria-hidden="true"
+                  style={{ height: virtualPaddingTop }}
                 >
-                  <td>{row.id}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "nr_fisa")}>{renderGridCell(row, "nr_fisa")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "reper")}>{renderGridCell(row, "reper")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "client")}>{renderGridCell(row, "client")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "buc")}>{renderGridCell(row, "buc")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "data_intrare")}>{renderGridCell(row, "data_intrare")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "data_livrare")}>{renderGridCell(row, "data_livrare")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "comanda")}>{renderGridCell(row, "comanda")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "tratament")}>{renderGridCell(row, "tratament")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "observatii")}>{renderGridCell(row, "observatii")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "strung_colchester")}>{renderGridCell(row, "strung_colchester")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "strung_cnc")}>{renderGridCell(row, "strung_cnc")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "freze_mici")}>{renderGridCell(row, "freze_mici")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "freze_mari")}>{renderGridCell(row, "freze_mari")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "gaurire")}>{renderGridCell(row, "gaurire")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "rectificare")}>{renderGridCell(row, "rectificare")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "bwk")}>{renderGridCell(row, "bwk")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "sip")}>{renderGridCell(row, "sip")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "norte")}>{renderGridCell(row, "norte")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "tos")}>{renderGridCell(row, "tos")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "bridgeport")}>{renderGridCell(row, "bridgeport")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "eco")}>{renderGridCell(row, "eco")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "schaublin")}>{renderGridCell(row, "schaublin")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "hurco")}>{renderGridCell(row, "hurco")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "matec")}>{renderGridCell(row, "matec")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "parpas")}>{renderGridCell(row, "parpas")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "ajustare")}>{renderGridCell(row, "ajustare")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "filetare")}>{renderGridCell(row, "filetare")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "marcare")}>{renderGridCell(row, "marcare")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "curatare_filete")}>{renderGridCell(row, "curatare_filete")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "timp_per_buc")}>{renderGridCell(row, "timp_per_buc")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "ore_totale")}>{renderGridCell(row, "ore_totale")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "valoare_per_buc")}>{renderGridCell(row, "valoare_per_buc")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "valoare_totala")}>{renderGridCell(row, "valoare_totala")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "utilaj_folosit")}>{renderGridCell(row, "utilaj_folosit")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "soft_folosit")}>{renderGridCell(row, "soft_folosit")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "programator")}>{renderGridCell(row, "programator")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "locatie_dosar")}>{renderGridCell(row, "locatie_dosar")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "status")}>{renderGridCell(row, "status")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "control_status")}>{renderGridCell(row, "control_status")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "magazie_status")}>{renderGridCell(row, "magazie_status")}</td>
-                  <td>{formatCell(row.created_at)}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "created_by")}>{renderGridCell(row, "created_by")}</td>
-                  <td>{formatCell(row.updated_at)}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "updated_by")}>{renderGridCell(row, "updated_by")}</td>
-                  <td onDoubleClick={() => beginCellEdit(row, "recalc_at")}>{renderGridCell(row, "recalc_at")}</td>
-                  <td>
-                    <button
-                      className="small-btn"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        useRowAsTemplate(row);
-                      }}
-                      disabled={isSaving}
-                    >
-                      Use as template
-                    </button>
-                  </td>
+                  <td colSpan={COLUMN_ORDER.length} />
                 </tr>
-              ))}
+              )}
+              {virtualRows.map((virtualRow) => {
+                const row = filteredRows[virtualRow.index];
+                if (!row) {
+                  return null;
+                }
+                return (
+                  <VirtualizedMainRow
+                    key={row.id}
+                    row={row}
+                    rowIndex={virtualRow.index}
+                    isSelected={selectedRowId === row.id}
+                    onSelect={selectRowById}
+                    onBeginCellEdit={beginCellEdit}
+                    onUseAsTemplate={useRowAsTemplate}
+                    activeCell={activeCell}
+                    activeCellValue={activeCellValue}
+                    onActiveCellValueChange={setActiveCellValue}
+                    onCommitCellEdit={commitCellEdit}
+                    onCellEditorKeyDown={onCellEditorKeyDown}
+                    editableCellFields={editableCellFields}
+                    isSaving={isSaving}
+                  />
+                );
+              })}
+              {virtualPaddingBottom > 0 && (
+                <tr
+                  className="virtual-spacer"
+                  aria-hidden="true"
+                  style={{ height: virtualPaddingBottom }}
+                >
+                  <td colSpan={COLUMN_ORDER.length} />
+                </tr>
+              )}
             </tbody>
           </table>
           <div className="infinite-status">

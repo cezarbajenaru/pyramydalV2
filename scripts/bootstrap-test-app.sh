@@ -9,7 +9,7 @@ UI_DIR="$ROOT_DIR/ui"
 VENV_DIR="$ROOT_DIR/.venv"
 
 BACKEND_HOST="${BACKEND_HOST:-0.0.0.0}"
-BACKEND_PORT="${BACKEND_PORT:-8000}"
+BACKEND_PORT="${BACKEND_PORT:-8001}"
 UI_HOST="${UI_HOST:-0.0.0.0}"
 UI_PORT="${UI_PORT:-5173}"
 
@@ -68,7 +68,7 @@ export POSTGRES_PASSWORD="$DB_PASSWORD_VALUE"
 export PYTHONPATH="$ROOT_DIR"
 
 # FIX 2: include psycopg2 in the pre-flight check
-if ! "$PYTHON_BIN" -c "import fastapi, uvicorn, psycopg2" >/dev/null 2>&1; then
+if ! "$PYTHON_BIN" -c "import fastapi, uvicorn, psycopg2, alembic" >/dev/null 2>&1; then
   echo "Installing backend dependencies..."
   "$PIP_BIN" install -r "$BACKEND_DIR/requirements.txt"
 fi
@@ -78,7 +78,7 @@ if [[ ! -d "$UI_DIR/node_modules" ]]; then
   (cd "$UI_DIR" && npm install)
 fi
 
-if ! "$PYTHON_BIN" -c "import fastapi, uvicorn, psycopg2" >/dev/null 2>&1; then
+if ! "$PYTHON_BIN" -c "import fastapi, uvicorn, psycopg2, alembic" >/dev/null 2>&1; then
   echo "Backend dependencies still missing after install."
   echo "Check network/DNS/proxy and retry."
   exit 1
@@ -162,49 +162,9 @@ fi
 
 echo "Database ready."
 
-echo "Applying database schema..."
-# FIX 3: use ROOT_DIR env var for absolute paths — no CWD dependence
-if ! "$PYTHON_BIN" - <<'PY'
-import os
-from pathlib import Path
-import psycopg2
-from backend.app.config import settings
-
-root = Path(os.environ["ROOT_DIR"])
-
-schema_files = [
-    root / "db/schema/001_init.sql",
-    root / "db/schema/002_staging_and_audit.sql",
-    root / "db/schema/003_recalc_procedures.sql",
-]
-
-conn = psycopg2.connect(
-    host=settings.db_host,
-    port=settings.db_port,
-    dbname=settings.db_name,
-    user=settings.db_user,
-    password=settings.db_password,
-    connect_timeout=3,
-)
-
-try:
-    with conn.cursor() as cur:
-        cur.execute("SELECT to_regclass('app.main_rows')")
-        already_initialized = cur.fetchone()[0] is not None
-
-    if already_initialized:
-        print("  schema already present (app.main_rows exists), skipping schema files.", flush=True)
-    else:
-        with conn:
-            with conn.cursor() as cur:
-                for path in schema_files:
-                    print(f"  applying {path.name} ...", flush=True)
-                    cur.execute(path.read_text(encoding="utf-8"))
-finally:
-    conn.close()
-PY
-then
-  echo "Failed to apply schema files from db/schema/."
+echo "Running database migrations..."
+if ! PYTHONPATH="$ROOT_DIR" "$PYTHON_BIN" "$ROOT_DIR/scripts/db_migrate.py"; then
+  echo "Failed to apply Alembic migrations."
   exit 1
 fi
 
